@@ -1,15 +1,12 @@
-import math
+import sqlite3
+import threading
 import time as t
-from datetime import timedelta, datetime
-
-from redis import Redis
-from rq import Queue
-import praw
-
-import jobs
-import os
+from datetime import datetime
+from sqlite3 import Error
 
 # Reply for encouraging disccusion - placed on every image post
+import praw
+
 STANDARD_REPLY = "Thank you for posting to r/BeginnerWoodWorking! As a community for beginners, we encourage users to" \
                  " share details and knowledge about the posts they submit. Sharing lessons learned, in-progress " \
                  "photos, and other information help others to learn. We also encourage users to ask questions about " \
@@ -27,30 +24,86 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 # submission for double dipping (900s = 15m)
 PASS_DELAY = 600
 
+def isDoubleDipping(submission):
+    poster = submission.author
+    # Check the posters submissions in all subreddits
+    for posterSubmisionElsewhere in poster.submissions.new():
+        # Check if it is an image post
+        if not posterSubmisionElsewhere.is_self and (posterSubmisionElsewhere.id != submission.id):
+            # Check if the title or URL is the same as the submission in question. If so, that is not allowed and the
+            # post should be removed
+            if (posterSubmisionElsewhere.title == submission.title) or (posterSubmisionElsewhere.url == submission.url):
+                return True
+    return False
 
-def main():
-    # Make the job queue
-    redis_conn = Redis()
-    q = Queue(connection=redis_conn)
+def removeDoubleDippers(submission):
+    reply = submission.reply(DOUBLE_DIPPING_REPLY)
+    reply.mod.distinguish(how="yes", sticky=True)
+    print(f"Removed post by u/{submission.author}: \"{submission.name}\" for double dipping")
+    # TODO send a mod mail to inform of action
+    submission.mod.remove()
 
-    print("Started BWoodworkingBotTest")
+#The main actions of the bot are performed here.
+def review(submission):
 
-    #A rq worker must be available for every job that is queued
-    for submission in subreddit.stream.submissions(skip_existing=True):
+    print(f"{datetime.now()}: Working on \"{submission.title}\" by u/{submission.author}")
 
-        q.enqueue(jobs.review, submission, job_timeout=(PASS_DELAY + 60))
-        print(f"{datetime.now()}: Working on \"{submission.title}\" by u/{submission.author}")
+    # Check for double dipping (first pass)
+    if isDoubleDipping(submission):
+        removeDoubleDippers(submission)
+        return
 
-        # passes bash command to terminal creating a burst worker - super hacky
-        # if you need the logs form the workers then direct the hup log to not /dev/null
-        os.system("nohup rq worker --burst >/dev/null &")
+    # Give standard reply and save the ID of the reply
+    else:
+        reply = submission.reply(STANDARD_REPLY)
+        reply.mod.distinguish(how="yes", sticky=True)
 
+    # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
+    # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
+    t.sleep(PASS_DELAY)
 
-if __name__ == "__main__":
-    # Login ot reddit and configure
-    # Credentials in praw.ini
+    # Check for double dipping (second pass)
+    if isDoubleDipping(submission):
+        removeDoubleDippers(submission)
+        return
+
+    # Unsticky standard reply
+    reply.mod.undistinguish()
+    reply.mod.distinguish(how="yes", sticky=False)
+
+    # Assumes the oldest top level comment by the poster is the writeup
+    # If the writeup exists, the standard reply should be deleted (assuming it has no children)
+    oldestOPComment = None
+
+    topComments = submission.comments.replace_more(limit=0)
+    #iterates through top level comments and finds the oldest one by the poster
+    for comment in topComments:
+        if comment.is_sunmitter:
+            if oldestOPComment == None:
+                oldestOPComment = comment
+            elif oldestOPComment.created_utc > comment:
+                oldestOPComment = comment
+
+    #Remove standard reply if it has no children
+    deleteFlag = True
+    comments = submission.comments.replace_more(limit=None)
+    for comment in comments:
+        if comment.parent_id == reply.id:
+            deleteFlag = False
+            break
+
+    if deleteFlag and oldestOPComment != None:
+        reply.delete()
+
+    print(f"Finished review on \"{submission.title}\" by u/{submission.author}")
+    print(f"oldestOPComment = {oldestOPComment}")
+    print(f"deleteFlag = {deleteFlag}")
+
+if __name__ == '__main__':
     reddit = praw.Reddit("bot", user_agent="BWoodworkingBotTest by u/-CrashDive-")
 
     subreddit = reddit.subreddit("CrashDiveTesting")
 
-    main()
+    for submission in subreddit.stream.submissions(skip_existing=True):
+        thread = threading.Thread(target=review, args=[submission])
+        thread.start()
