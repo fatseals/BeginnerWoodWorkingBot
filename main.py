@@ -25,7 +25,7 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 60
+PASS_DELAY = 600
 
 
 def main():
