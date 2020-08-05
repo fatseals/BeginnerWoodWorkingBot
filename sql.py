@@ -16,7 +16,10 @@ REMOVE_AGE = 86400
 # Name of SQL table
 TABLE_NAME = "posts"
 
-CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRIMARY KEY, ReviewTime integer, PostTime integer, ReplyID text );"
+CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRIMARY KEY, ReviewTime integer, " \
+                     f"PostTime integer, ReplyID text ); "
+
+
 # === Table entries: ===
 # PostID is the Reddit assigned ID for the post.
 # ReviewTime is the UNIX time (in seconds) + 120s that the post was due to be reviewed
@@ -26,6 +29,7 @@ CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRI
 # Posts which are removed for double dipping on the first pass should not be added to the table.
 # Posts which have been reviewed should be removed form the table
 # Posts older than REMOVE_AGE should be removed from the table and an error should be logged with the PostID.
+
 
 def createDBConnection(file):
     connection = None
@@ -48,10 +52,15 @@ def createTable():
         exit()
 
 
-def insertPostIntoDB(connection, submission, reply):
+def insertSubmissionIntoDB(connection, submission, reply):
     reviewTime = submission.created_utc + main.PASS_DELAY + ADDITIONAL_PASS_DELAY
     query = f"INSERT INTO {TABLE_NAME} ( PostID, ReviewTime, PostTime, ReplyID) VALUES (?,?,?,?)"
-    values = (submission.id, reviewTime, submission.created_utc, reply.id)
+    if (not reply is None) and (not submission is None):
+        values = (submission.id, reviewTime, submission.created_utc, reply.id)
+    elif reply is None:
+        values = (submission.id, reviewTime, submission.created_utc, None)
+    else:
+        return
     cursor = connection.cursor()
     cursor.execute(query, values)
     connection.commit()
@@ -60,7 +69,7 @@ def insertPostIntoDB(connection, submission, reply):
 def removePostFromDB(connection, submission):
     query = f"DELETE FROM {TABLE_NAME} WHERE PostID = ?;"
     cursor = connection.cursor()
-    cursor.execute(query, (submission.id, ))
+    cursor.execute(query, (submission.id,))
     connection.commit()
 
 
@@ -74,7 +83,7 @@ def removePostByIDFromDB(connection, postID):
 # Not thread safe due to file IO!
 def removeExpiredPostsFromDB(connection):
     currentUNIXTime = time.time()
-    filter = (currentUNIXTime - REMOVE_AGE, )
+    filter = (currentUNIXTime - REMOVE_AGE,)
     query = f"SELECT PostID FROM {TABLE_NAME} WHERE PostTime < ?;"
     cursor = connection.cursor()
     cursor.execute(query, filter)
@@ -87,7 +96,7 @@ def removeExpiredPostsFromDB(connection):
 
 
 def fetchUnreviewedPostsFromDB(connection):
-    currentUNIXTime = (time.time(), )
+    currentUNIXTime = (time.time(),)
     query = f"SELECT PostID FROM {TABLE_NAME} WHERE ReviewTime < ?;"
     cursor = connection.cursor()
     cursor.execute(query, currentUNIXTime)
@@ -100,11 +109,26 @@ def fetchUnreviewedPostsFromDB(connection):
 
     return postIDList
 
+
 def fetchCommentIDFromDB(connection, submission):
-    postId = (submission.id, )
+    postId = (submission.id,)
     query = f"SELECT ReplyID FROM {TABLE_NAME} WHERE PostID = ?;"
     cursor = connection.cursor()
     cursor.execute(query, postId)
     commentIDTupleList = cursor.fetchall()
     connection.commit()
     return "".join(commentIDTupleList[0])
+
+
+def fetchAllPostIDsFromDB(connection):
+    query = f"SELECT PostID FROM {TABLE_NAME};"
+    cursor = connection.cursor()
+    cursor.execute(query)
+    postIDTupleList = cursor.fetchall()
+    connection.commit()
+
+    postIDList = []
+    for postIDTuple in postIDTupleList:
+        postIDList.append("".join(postIDTuple))
+
+    return postIDList

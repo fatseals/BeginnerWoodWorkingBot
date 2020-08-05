@@ -14,13 +14,13 @@ STANDARD_REPLY = "Thank you for posting to r/BeginnerWoodWorking! As a community
 DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been removed. Unfortunately, we do not allow " \
                        "image content posted in this subreddit to be posted in other subreddits or vice versa. This " \
                        "reduces karma farming in a subreddit that is focused on learning. \n\n This process has been " \
-                       "performed automatically by a bot. If you believe that your post has been removed in error, then" \
-                       " please [message the moderators](" \
+                       "performed automatically by a bot. If you believe that your post has been removed in error, " \
+                       "then please [message the moderators](" \
                        "https://www.reddit.com/message/compose?to=%2Fr%2FBeginnerWoodWorking). "
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 30
+PASS_DELAY = 60
 
 # If the bot should create a mod mail when it removes a post.
 # If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
@@ -36,16 +36,20 @@ PRAW_INI_SITE = "bot"
 # Subreddits for the bot to operate on
 SUBREDDITS = "CrashDiveTesting"
 
+
 def isDoubleDipping(submission):
     poster = submission.author
-    if poster == None:
+    if poster is None:
         return True
-    for posterSubmisionElsewhere in poster.submissions.new():
+    for submissionElsewhere in poster.submissions.new():
+        # Exclude posts made in r/BeginnerWoodWorking
+        if
+
         # Check if it is an image post
-        if not posterSubmisionElsewhere.is_self and (posterSubmisionElsewhere.id != submission.id):
+        if not submissionElsewhere.is_self and (submissionElsewhere.id != submission.id):
             # Check if the title or URL is the same as the submission in question. If so, that is not allowed and the
             # post should be removed
-            if (posterSubmisionElsewhere.title == submission.title) or (posterSubmisionElsewhere.url == submission.url):
+            if (submissionElsewhere.title == submission.title) or (submissionElsewhere.url == submission.url):
                 return True
     return False
 
@@ -54,7 +58,7 @@ def removeDoubleDippers(submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
     print(f"Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
-    if (submission.author != None) and (submission.title != None) and (CREATE_MOD_MAIL):
+    if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
         submission.subreddit.message("Removed double dipper",
                                      f"Removed post by u/{submission.author}: \"{submission.title}\" "
                                      f"for double dipping \n\n Permalink: {submission.permalink}")
@@ -62,7 +66,7 @@ def removeDoubleDippers(submission):
 
 
 def firstReviewPass(submission, connection):
-    if submission == None:
+    if submission is None:
         return
 
     print(f"Working on \"{submission.title}\" by u/{submission.author}")
@@ -76,21 +80,28 @@ def firstReviewPass(submission, connection):
     else:
         reply = submission.reply(STANDARD_REPLY)
         reply.mod.distinguish(how="yes", sticky=True)
-        sql.insertPostIntoDB(connection, submission, reply)
+        sql.insertSubmissionIntoDB(connection, submission, reply)
+
 
 def secondReviewPass(submission, connection):
-    if submission == None:
+    if submission is None:
         return
 
-
+    # Check for double dipping and remove submission if needed
     if isDoubleDipping(submission):
         removeDoubleDippers(submission)
         # Remove post from SQL DB
         sql.removePostFromDB(connection, submission)
         return
 
-    # Unsticky standard reply
+    # Fetch the replyID from database
     replyID = sql.fetchCommentIDFromDB(connection, submission)
+
+    # Return if there is no reply
+    if replyID is None:
+        return
+
+    # Un-sticky standard reply
     reply = reddit.comment(replyID)
     reply.mod.undistinguish()
     reply.mod.distinguish(how="yes", sticky=False)
@@ -103,14 +114,13 @@ def secondReviewPass(submission, connection):
     # iterates through top level comments and finds the oldest one by the poster
     for comment in topComments:
         if comment.is_submitter:
-            if oldestOPComment == None:
+            if oldestOPComment is None:
                 oldestOPComment = comment
             elif oldestOPComment.created_utc > comment.created_utc:
                 oldestOPComment = comment
 
     # Remove standard reply if it has no children
     deleteFlag = True
-
     comments = submission.comments.list()
     print(f"comments = {comments}")
     for comment in comments:
@@ -118,15 +128,13 @@ def secondReviewPass(submission, connection):
             deleteFlag = False
             break
 
-    printFlag = False
-    if deleteFlag and oldestOPComment != None:
+    if deleteFlag and oldestOPComment is not None:
         reply.delete()
-        printFlag = True
 
-
-    #Remove post from SQL DB
+    # Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
 
+    # Message
     print(f"Finished review on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
 
@@ -155,21 +163,36 @@ def persistence():
         postIDList = sql.fetchUnreviewedPostsFromDB(connection)
         for postID in postIDList:
             submission = reddit.submission(postID)
-            if submission != None:
+            if submission is not None:
                 secondReviewPass(submission, connection)
-            t.sleep(5) # Throttles the bot some to avoid hitting the rate limit
-        t.sleep(300) # No need to query the DB constantly doing persistence checks
+            t.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
+
+        t.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
 
 
 if __name__ == "__main__":
-
     # Setup
     reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
     subreddit = reddit.subreddit(SUBREDDITS)
     sql.createTable()
 
     # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
-    # TODO
+    # Submissions that were made during the downtime will only get the second review pass.
+    connection = sql.createDBConnection(sql.DB_FILE)
+    postIDs = sql.fetchAllPostIDsFromDB(connection)
+    filterTime = t.time() - PASS_DELAY
+    for submission in subreddit.stream.submissions(pause_after=0):
+        # Exit when complete
+        if submission is None:
+            break
+
+        print(f"Submission: {submission.title} {submission.id}")
+        # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
+        if (not submission.id in postIDs) and (submission.created_utc > filterTime):
+            print(f"Added {submission.title} {submission.id}")
+            sql.insertSubmissionIntoDB(connection, submission, None)
+
+    connection.close()
 
     # Start threads
     mainThread = threading.Thread(target=main)
@@ -178,6 +201,3 @@ if __name__ == "__main__":
     persistenceThread.start()
 
     print("Started bot")
-
-
-
