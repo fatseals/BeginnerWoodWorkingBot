@@ -130,6 +130,7 @@ if __name__ == "__main__":
     reddit = praw.Reddit("bot", user_agent="BWoodworkingBotTest by u/-CrashDive-")
     subreddit = reddit.subreddit("CrashDiveTesting")
 
+    sql.createTable()
     mainThead = threading.Thread(target=main)
     persistenceThread = threading.Thread(target=persistence)
 

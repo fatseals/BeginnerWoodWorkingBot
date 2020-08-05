@@ -37,13 +37,16 @@ def createDBConnection(file):
         if conn:
             conn.close()
 
-def createTable(connection):
+def createTable():
     try:
+        connection = createDBConnection(DB_FILE)
         cursor = connection.cursor()
         cursor.execute(CREATE_TABLE_QUERY)
         connection.commit()
+        connection = createDBConnection(DB_FILE)
     except Error as e:
         print(e)
+        exit()
 
 def insertPostIntoDB(connection, submission, reply):
     reviewTime = submission.created_utc + main.PASS_DELAY + ADDITIONAL_PASS_DELAY
