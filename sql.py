@@ -5,10 +5,10 @@ import time
 import main
 
 # SQL Database File Path
-DB_FILE = sql.dat
+DB_FILE = "sql.dat"
 
 # Time (seconds) to add to main.PASS_DELAY to get ReviewTime. Works as buffer to make sure posts aren't reviewed twice
-ADDITIONAL_PASS_DELAY = 60
+ADDITIONAL_PASS_DELAY = 30
 
 # Age of post (seconds) that should be removed from the database (1 day = 86400 seconds)
 REMOVE_AGE = 86400
@@ -28,14 +28,13 @@ CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRI
 # Posts older than REMOVE_AGE should be removed from the table and an error should be logged with the PostID.
 
 def createDBConnection(file):
-    conn = None
+    connection = None
     try:
-        conn = sqlite3.connect(file)
+        connection = sqlite3.connect(file)
     except Error as e:
         print(e)
-    finally:
-        if conn:
-            conn.close()
+    return connection
+
 
 def createTable():
     try:
@@ -43,28 +42,27 @@ def createTable():
         cursor = connection.cursor()
         cursor.execute(CREATE_TABLE_QUERY)
         connection.commit()
-        connection = createDBConnection(DB_FILE)
+        connection.close()
     except Error as e:
         print(e)
         exit()
 
+
 def insertPostIntoDB(connection, submission, reply):
     reviewTime = submission.created_utc + main.PASS_DELAY + ADDITIONAL_PASS_DELAY
-    query = f"INSERT INTO {TABLE_NAME} ( PostID, ReviewTime, PostTime, ReviewBool, ReplyID)" \
-            f"VALUES (" \
-            f"{submission.id}, " \
-            f"{reviewTime},"  \
-            f"{submission.created_utc}, " \
-            f"{reply.id});"
+    query = f"INSERT INTO {TABLE_NAME} ( PostID, ReviewTime, PostTime, ReplyID) VALUES (?,?,?,?)"
+    values = (submission.id, reviewTime, submission.created_utc, reply.id)
     cursor = connection.cursor()
-    cursor.execute(query)
+    cursor.execute(query, values)
     connection.commit()
 
+
 def removePostFromDB(connection, submission):
-    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = {submission.id};"
+    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = ?;"
     cursor = connection.cursor()
-    cursor.execute(query)
+    cursor.execute(query, (submission.id, ))
     connection.commit()
+
 
 def removePostByIDFromDB(connection, postID):
     query = f"DELETE FROM {TABLE_NAME} WHERE PostID = {postID};"
@@ -72,25 +70,41 @@ def removePostByIDFromDB(connection, postID):
     cursor.execute(query)
     connection.commit()
 
+
+# Not thread safe due to file IO!
 def removeExpiredPostsFromDB(connection):
     currentUNIXTime = time.time()
-    filter = currentUNIXTime - REMOVE_AGE
-    query = f"SELECT PostID FROM {TABLE_NAME} WHERE PostTime < {filter};"
+    filter = (currentUNIXTime - REMOVE_AGE, )
+    query = f"SELECT PostID FROM {TABLE_NAME} WHERE PostTime < ?;"
     cursor = connection.cursor()
-    cursor.execute(query)
+    cursor.execute(query, filter)
     postIDList = cursor.fetchall()
     connection.commit()
 
     for postID in postIDList:
-        # TODO log error
-        removePostByIDFromDB(connection, postID)
+        # TODO log error in file
+        removePostByIDFromDB(connection, "".join(postID))
+
 
 def fetchUnreviewedPostsFromDB(connection):
-    currentUNIXTime = time.time()
-    query = f"SELECT PostID FROM {TABLE_NAME} WHERE ReviewTime < {currentUNIXTime};"
+    currentUNIXTime = (time.time(), )
+    query = f"SELECT PostID FROM {TABLE_NAME} WHERE ReviewTime < ?;"
     cursor = connection.cursor()
-    cursor.execute(query)
-    postIDList = cursor.fetchall()
+    cursor.execute(query, currentUNIXTime)
+    postIDTupleList = cursor.fetchall()
     connection.commit()
 
+    postIDList = []
+    for postIDTuple in postIDTupleList:
+        postIDList.append("".join(postIDTuple))
+
     return postIDList
+
+def fetchCommentIDFromDB(connection, submission):
+    postId = (submission.id, )
+    query = f"SELECT ReplyID FROM {TABLE_NAME} WHERE PostID = ?;"
+    cursor = connection.cursor()
+    cursor.execute(query, postId)
+    commentIDTupleList = cursor.fetchall()
+    connection.commit()
+    return "".join(commentIDTupleList[0])

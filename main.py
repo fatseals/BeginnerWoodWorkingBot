@@ -20,11 +20,26 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 600
+PASS_DELAY = 30
+
+# If the bot should create a mod mail when it removes a post.
+# If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
+# Tabs can be kept on the bot by looking in the moderation log
+CREATE_MOD_MAIL = False
+
+# User agent to connect to Reddit
+USER_AGENT = "BWoodworkingBotTest by u/-CrashDive-"
+
+# Site in praw.ini with bot credentials
+PRAW_INI_SITE = "bot"
+
+# Subreddits for the bot to operate on
+SUBREDDITS = "CrashDiveTesting"
 
 def isDoubleDipping(submission):
     poster = submission.author
-    # Check the posters submissions in all subreddits
+    if poster == None:
+        return True
     for posterSubmisionElsewhere in poster.submissions.new():
         # Check if it is an image post
         if not posterSubmisionElsewhere.is_self and (posterSubmisionElsewhere.id != submission.id):
@@ -34,15 +49,22 @@ def isDoubleDipping(submission):
                 return True
     return False
 
+
 def removeDoubleDippers(submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
-    print(f"Removed post by u/{submission.author}: \"{submission.name}\" for double dipping")
-    submission.subreddit.message(f"Removed post by u/{submission.author}: \"{submission.name}\""
-                                 f"for double dipping \n\n Permalink: {submission.permalink}")
+    print(f"Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
+    if (submission.author != None) and (submission.title != None) and (CREATE_MOD_MAIL):
+        submission.subreddit.message("Removed double dipper",
+                                     f"Removed post by u/{submission.author}: \"{submission.title}\" "
+                                     f"for double dipping \n\n Permalink: {submission.permalink}")
     submission.mod.remove()
 
+
 def firstReviewPass(submission, connection):
+    if submission == None:
+        return
+
     print(f"Working on \"{submission.title}\" by u/{submission.author}")
 
     # Check for double dipping (first pass)
@@ -57,6 +79,10 @@ def firstReviewPass(submission, connection):
         sql.insertPostIntoDB(connection, submission, reply)
 
 def secondReviewPass(submission, connection):
+    if submission == None:
+        return
+
+
     if isDoubleDipping(submission):
         removeDoubleDippers(submission)
         # Remove post from SQL DB
@@ -64,42 +90,48 @@ def secondReviewPass(submission, connection):
         return
 
     # Unsticky standard reply
+    replyID = sql.fetchCommentIDFromDB(connection, submission)
+    reply = reddit.comment(replyID)
     reply.mod.undistinguish()
     reply.mod.distinguish(how="yes", sticky=False)
 
     # Assumes the oldest top level comment by the poster is the writeup
     # If the writeup exists, the standard reply should be deleted (assuming it has no children)
     oldestOPComment = None
-
-    topComments = submission.comments.replace_more(limit=0)
+    submission.comments.replace_more(limit=None)
+    topComments = submission.comments
     # iterates through top level comments and finds the oldest one by the poster
     for comment in topComments:
-        if comment.is_sunmitter:
+        if comment.is_submitter:
             if oldestOPComment == None:
                 oldestOPComment = comment
-            elif oldestOPComment.created_utc > comment:
+            elif oldestOPComment.created_utc > comment.created_utc:
                 oldestOPComment = comment
 
     # Remove standard reply if it has no children
     deleteFlag = True
-    comments = submission.comments.replace_more(limit=None)
+
+    comments = submission.comments.list()
+    print(f"comments = {comments}")
     for comment in comments:
-        if comment.parent_id == reply.id:
+        if comment.parent_id == ("t1_" + reply.id):
             deleteFlag = False
             break
 
+    printFlag = False
     if deleteFlag and oldestOPComment != None:
         reply.delete()
+        printFlag = True
+
 
     #Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
 
-    print(f"Finished review on \"{submission.title}\" by u/{submission.author}")
-    print(f"oldestOPComment = {oldestOPComment}")
-    print(f"deleteFlag = {deleteFlag}")
+    print(f"Finished review on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+
 
 def review(submission):
-    connection = sql.createDBConnection(DB_FILE)
+    connection = sql.createDBConnection(sql.DB_FILE)
 
     firstReviewPass(submission, connection)
 
@@ -115,24 +147,37 @@ def main():
         thread = threading.Thread(target=review, args=[submission])
         thread.start()
 
+
 def persistence():
     connection = sql.createDBConnection(sql.DB_FILE)
     while True:
-        sql.removeExpiredPostsFromDB()
+        sql.removeExpiredPostsFromDB(connection)
         postIDList = sql.fetchUnreviewedPostsFromDB(connection)
         for postID in postIDList:
-            secondReviewPass(reddit.submission(postID), connection)
+            submission = reddit.submission(postID)
+            if submission != None:
+                secondReviewPass(submission, connection)
             t.sleep(5) # Throttles the bot some to avoid hitting the rate limit
         t.sleep(300) # No need to query the DB constantly doing persistence checks
 
 
 if __name__ == "__main__":
-    reddit = praw.Reddit("bot", user_agent="BWoodworkingBotTest by u/-CrashDive-")
-    subreddit = reddit.subreddit("CrashDiveTesting")
 
+    # Setup
+    reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
+    subreddit = reddit.subreddit(SUBREDDITS)
     sql.createTable()
-    mainThead = threading.Thread(target=main)
+
+    # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
+    # TODO
+
+    # Start threads
+    mainThread = threading.Thread(target=main)
     persistenceThread = threading.Thread(target=persistence)
+    mainThread.start()
+    persistenceThread.start()
+
+    print("Started bot")
 
 
 
