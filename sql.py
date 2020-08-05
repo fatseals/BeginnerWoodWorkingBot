@@ -117,7 +117,10 @@ def fetchCommentIDFromDB(connection, submission):
     cursor.execute(query, postId)
     commentIDTupleList = cursor.fetchall()
     connection.commit()
-    return "".join(commentIDTupleList[0])
+    if commentIDTupleList[0][0] is None:
+        return ""
+    else:
+        return "".join(commentIDTupleList[0][0])
 
 
 def fetchAllPostIDsFromDB(connection):

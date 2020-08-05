@@ -20,7 +20,7 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 120
+PASS_DELAY = 300
 
 # If the bot should create a mod mail when it removes a post.
 # If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
@@ -28,15 +28,13 @@ PASS_DELAY = 120
 CREATE_MOD_MAIL = False
 
 # User agent to connect to Reddit
-USER_AGENT = "BWoodworkingBotTest by u/-CrashDive-"
+USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
 
 # Site in praw.ini with bot credentials
 PRAW_INI_SITE = "bot"
 
 # Subreddit for the bot to operate on
-SUBREDDIT = "CrashDiveTesting"
-
-
+SUBREDDIT = "BeginnerWoodWorking"
 
 def isDoubleDipping(submission):
     if not submission.is_self:
@@ -44,28 +42,23 @@ def isDoubleDipping(submission):
         for duplicate in duplicates:
             # This is pretty loose criteria. It intentionally does not check for reposts of other users links.
             # It also excludes posts made in SUBREDDIT
-            # if (duplicate.author == submission.author) and (duplicate.subreddit.id != subreddit.id):
-            # TODO replace if statement for the one commented out
-            if (duplicate.subreddit.id != reddit.subreddit("BeginnerWoodWorking").id) and \
-               (duplicate.subreddit.id != reddit.subreddit("CrashDiveTesting").id):
-                print("==================================================================")
-                print("Found a dirty double dipper:")
-                print(submission.title)
-                print("==================================================================")
+            if (duplicate.author == submission.author) and (duplicate.subreddit.id != subreddit.id):
                 return True
 
     return False
 
 
 def removeDoubleDippers(submission):
-    reply = submission.reply(DOUBLE_DIPPING_REPLY)
-    reply.mod.distinguish(how="yes", sticky=True)
-    print(f"Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
+    #reply = submission.reply(DOUBLE_DIPPING_REPLY)
+    #reply.mod.distinguish(how="yes", sticky=True)
+
+    print(f" === Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
-        submission.subreddit.message("Removed double dipper",
-                                     f"Removed post by u/{submission.author}: \"{submission.title}\" "
-                                     f"for double dipping \n\n Permalink: {submission.permalink}")
-    submission.mod.remove()
+        pass
+        #submission.subreddit.message("Removed double dipper",
+        #                             f"Removed post by u/{submission.author}: \"{submission.title}\" "
+        #                             f"for double dipping \n\n Permalink: {submission.permalink}")
+    #submission.mod.remove()
 
 
 def firstReviewPass(submission, connection):
@@ -81,9 +74,10 @@ def firstReviewPass(submission, connection):
 
     # Give standard reply and add post to SQL DB
     else:
-        reply = submission.reply(STANDARD_REPLY)
-        reply.mod.distinguish(how="yes", sticky=True)
-        sql.insertSubmissionIntoDB(connection, submission, reply)
+        print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}")
+        #reply = submission.reply(STANDARD_REPLY)
+        #reply.mod.distinguish(how="yes", sticky=True)
+        #sql.insertSubmissionIntoDB(connection, submission, reply)
 
 
 def secondReviewPass(submission, connection):
@@ -101,13 +95,14 @@ def secondReviewPass(submission, connection):
     replyID = sql.fetchCommentIDFromDB(connection, submission)
 
     # Return if there is no reply
-    if replyID is None:
+    if replyID is None or replyID == "":
         return
 
     # Un-sticky standard reply
-    reply = reddit.comment(replyID)
-    reply.mod.undistinguish()
-    reply.mod.distinguish(how="yes", sticky=False)
+    print(f"Unstickied standard reply on \"{submission.title}\" by u/{submission.author}")
+    #reply = reddit.comment(replyID)
+    #reply.mod.undistinguish()
+    #reply.mod.distinguish(how="yes", sticky=False)
 
     # Assumes the oldest top level comment by the poster is the writeup
     # If the writeup exists, the standard reply should be deleted (assuming it has no children)
@@ -126,12 +121,14 @@ def secondReviewPass(submission, connection):
     deleteFlag = True
     comments = submission.comments.list()
     for comment in comments:
-        if comment.parent_id == ("t1_" + reply.id):
+        #if comment.parent_id == ("t1_" + reply.id):
+        if True: # TODO Replace if with one above
             deleteFlag = False
             break
 
     if deleteFlag and oldestOPComment is not None:
-        reply.delete()
+        #reply.delete()
+        print("Deleted standard reply on \"{submission.title}\" by u/{submission.author}")
 
     # Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
@@ -199,6 +196,7 @@ if __name__ == "__main__":
             continue
 
         # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
+        # Changing the algorithm to add posts made before PASS_DELAY seconds is a bad idea
         if (not possibleMissedSubmission.id in postIDs) and (possibleMissedSubmission.created_utc > filterTime):
             print(f"Missed during downtime: {possibleMissedSubmission.title} {possibleMissedSubmission.id}. Adding...")
             sql.insertSubmissionIntoDB(connection, possibleMissedSubmission, None)
