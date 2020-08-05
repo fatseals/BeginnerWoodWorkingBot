@@ -1,6 +1,7 @@
 import threading
 import time as t
 
+import sql
 import praw
 
 # Reply for encouraging discussion - placed on every image post
@@ -21,7 +22,6 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 # submission for double dipping (900s = 15m)
 PASS_DELAY = 600
 
-
 def isDoubleDipping(submission):
     poster = submission.author
     # Check the posters submissions in all subreddits
@@ -34,18 +34,15 @@ def isDoubleDipping(submission):
                 return True
     return False
 
-
 def removeDoubleDippers(submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
     print(f"Removed post by u/{submission.author}: \"{submission.name}\" for double dipping")
-    submission.subreddit.message(f"Removed post by u/{submission.author}: \"{submission.name}\"" \ 
+    submission.subreddit.message(f"Removed post by u/{submission.author}: \"{submission.name}\""
                                  f"for double dipping \n\n Permalink: {submission.permalink}")
     submission.mod.remove()
 
-
-# The main actions of the bot are performed here.
-def review(submission):
+def firstReviewPass(submission, connection):
     print(f"Working on \"{submission.title}\" by u/{submission.author}")
 
     # Check for double dipping (first pass)
@@ -53,18 +50,17 @@ def review(submission):
         removeDoubleDippers(submission)
         return
 
-    # Give standard reply and save the ID of the reply
+    # Give standard reply and add post to SQL DB
     else:
         reply = submission.reply(STANDARD_REPLY)
         reply.mod.distinguish(how="yes", sticky=True)
+        sql.insertPostIntoDB(connection, submission, reply)
 
-    # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
-    # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
-    t.sleep(PASS_DELAY)
-
-    # Check for double dipping (second pass)
+def secondReviewPass(submission, connection):
     if isDoubleDipping(submission):
         removeDoubleDippers(submission)
+        # Remove post from SQL DB
+        sql.removePostFromDB(connection, submission)
         return
 
     # Unsticky standard reply
@@ -95,16 +91,47 @@ def review(submission):
     if deleteFlag and oldestOPComment != None:
         reply.delete()
 
+    #Remove post from SQL DB
+    sql.removePostFromDB(connection, submission)
+
     print(f"Finished review on \"{submission.title}\" by u/{submission.author}")
     print(f"oldestOPComment = {oldestOPComment}")
     print(f"deleteFlag = {deleteFlag}")
 
+def review(submission):
+    connection = sql.createDBConnection(DB_FILE)
 
-if __name__ == '__main__':
-    reddit = praw.Reddit("bot", user_agent="BWoodworkingBotTest by u/-CrashDive-")
+    firstReviewPass(submission, connection)
 
-    subreddit = reddit.subreddit("CrashDiveTesting")
+    # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
+    # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
+    t.sleep(PASS_DELAY)
 
+    secondReviewPass(submission, connection)
+
+
+def main():
     for submission in subreddit.stream.submissions(skip_existing=True):
         thread = threading.Thread(target=review, args=[submission])
         thread.start()
+
+def persistence():
+    connection = sql.createDBConnection(sql.DB_FILE)
+    while True:
+        sql.removeExpiredPostsFromDB()
+        postIDList = sql.fetchUnreviewedPostsFromDB(connection)
+        for postID in postIDList:
+            secondReviewPass(reddit.submission(postID), connection)
+            t.sleep(5) # Throttles the bot some to avoid hitting the rate limit
+        t.sleep(300) # No need to query the DB constantly doing persistence checks
+
+
+if __name__ == "__main__":
+    reddit = praw.Reddit("bot", user_agent="BWoodworkingBotTest by u/-CrashDive-")
+    subreddit = reddit.subreddit("CrashDiveTesting")
+
+    mainThead = threading.Thread(target=main)
+    persistenceThread = threading.Thread(target=persistence)
+
+
+

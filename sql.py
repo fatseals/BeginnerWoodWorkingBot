@@ -4,6 +4,9 @@ import time
 
 import main
 
+# SQL Database File Path
+DB_FILE = sql.dat
+
 # Time (seconds) to add to main.PASS_DELAY to get ReviewTime. Works as buffer to make sure posts aren't reviewed twice
 ADDITIONAL_PASS_DELAY = 60
 
@@ -13,7 +16,7 @@ REMOVE_AGE = 86400
 # Name of SQL table
 TABLE_NAME = "posts"
 
-CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {DB_NAME} ( PostID text PRIMARY KEY, ReviewTime integer, PostTime integer, ReplyID text );"
+CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRIMARY KEY, ReviewTime integer, PostTime integer, ReplyID text );"
 # === Table entries: ===
 # PostID is the Reddit assigned ID for the post.
 # ReviewTime is the UNIX time (in seconds) + 120s that the post was due to be reviewed
@@ -44,7 +47,7 @@ def createTable(connection):
 
 def insertPostIntoDB(connection, submission, reply):
     reviewTime = submission.created_utc + main.PASS_DELAY + ADDITIONAL_PASS_DELAY
-    query = f"INSERT INTO {DB_NAME} ( PostID, ReviewTime, PostTime, ReviewBool, ReplyID)" \
+    query = f"INSERT INTO {TABLE_NAME} ( PostID, ReviewTime, PostTime, ReviewBool, ReplyID)" \
             f"VALUES (" \
             f"{submission.id}, " \
             f"{reviewTime},"  \
@@ -54,8 +57,8 @@ def insertPostIntoDB(connection, submission, reply):
     cursor.execute(query)
     connection.commit()
 
-def removePostFromDB(connection, post):
-    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = {post.id};"
+def removePostFromDB(connection, submission):
+    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = {submission.id};"
     cursor = connection.cursor()
     cursor.execute(query)
     connection.commit()
