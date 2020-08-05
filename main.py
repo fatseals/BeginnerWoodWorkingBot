@@ -20,7 +20,7 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 60
+PASS_DELAY = 120
 
 # If the bot should create a mod mail when it removes a post.
 # If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
@@ -33,24 +33,27 @@ USER_AGENT = "BWoodworkingBotTest by u/-CrashDive-"
 # Site in praw.ini with bot credentials
 PRAW_INI_SITE = "bot"
 
-# Subreddits for the bot to operate on
-SUBREDDITS = "CrashDiveTesting"
+# Subreddit for the bot to operate on
+SUBREDDIT = "CrashDiveTesting"
+
 
 
 def isDoubleDipping(submission):
-    poster = submission.author
-    if poster is None:
-        return True
-    for submissionElsewhere in poster.submissions.new():
-        # Exclude posts made in r/BeginnerWoodWorking
-        if
-
-        # Check if it is an image post
-        if not submissionElsewhere.is_self and (submissionElsewhere.id != submission.id):
-            # Check if the title or URL is the same as the submission in question. If so, that is not allowed and the
-            # post should be removed
-            if (submissionElsewhere.title == submission.title) or (submissionElsewhere.url == submission.url):
+    if not submission.is_self:
+        duplicates = submission.duplicates()
+        for duplicate in duplicates:
+            # This is pretty loose criteria. It intentionally does not check for reposts of other users links.
+            # It also excludes posts made in SUBREDDIT
+            # if (duplicate.author == submission.author) and (duplicate.subreddit.id != subreddit.id):
+            # TODO replace if statement for the one commented out
+            if (duplicate.subreddit.id != reddit.subreddit("BeginnerWoodWorking").id) and \
+               (duplicate.subreddit.id != reddit.subreddit("CrashDiveTesting").id):
+                print("==================================================================")
+                print("Found a dirty double dipper:")
+                print(submission.title)
+                print("==================================================================")
                 return True
+
     return False
 
 
@@ -122,7 +125,6 @@ def secondReviewPass(submission, connection):
     # Remove standard reply if it has no children
     deleteFlag = True
     comments = submission.comments.list()
-    print(f"comments = {comments}")
     for comment in comments:
         if comment.parent_id == ("t1_" + reply.id):
             deleteFlag = False
@@ -152,6 +154,12 @@ def review(submission):
 
 def main():
     for submission in subreddit.stream.submissions(skip_existing=True):
+        if submission is None:
+            continue
+
+        # skip self posts
+        if submission.is_self:
+            continue
         thread = threading.Thread(target=review, args=[submission])
         thread.start()
 
@@ -173,7 +181,7 @@ def persistence():
 if __name__ == "__main__":
     # Setup
     reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
-    subreddit = reddit.subreddit(SUBREDDITS)
+    subreddit = reddit.subreddit(SUBREDDIT)
     sql.createTable()
 
     # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
@@ -181,16 +189,19 @@ if __name__ == "__main__":
     connection = sql.createDBConnection(sql.DB_FILE)
     postIDs = sql.fetchAllPostIDsFromDB(connection)
     filterTime = t.time() - PASS_DELAY
-    for submission in subreddit.stream.submissions(pause_after=0):
+    for possibleMissedSubmission in subreddit.stream.submissions(pause_after=0):
         # Exit when complete
-        if submission is None:
+        if possibleMissedSubmission is None:
             break
 
-        print(f"Submission: {submission.title} {submission.id}")
+        # skip self posts
+        if possibleMissedSubmission.is_self:
+            continue
+
         # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
-        if (not submission.id in postIDs) and (submission.created_utc > filterTime):
-            print(f"Added {submission.title} {submission.id}")
-            sql.insertSubmissionIntoDB(connection, submission, None)
+        if (not possibleMissedSubmission.id in postIDs) and (possibleMissedSubmission.created_utc > filterTime):
+            print(f"Missed during downtime: {possibleMissedSubmission.title} {possibleMissedSubmission.id}. Adding...")
+            sql.insertSubmissionIntoDB(connection, possibleMissedSubmission, None)
 
     connection.close()
 
