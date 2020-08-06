@@ -5,18 +5,18 @@ import sql
 import praw
 
 # Reply for encouraging discussion - placed on every image post
-STANDARD_REPLY = "Thank you for posting to r/BeginnerWoodWorking! As a community for beginners, we encourage users to" \
-                 " share details and knowledge about the posts they submit. Sharing lessons learned, in-progress " \
-                 "photos, and other information help others to learn. We also encourage users to ask questions about " \
-                 "the posts they see. \n\n This is an automated response created by a bot. "
+STANDARD_REPLY = "Thank you for posting to r/BeginnerWoodWorking! If you have submitted a finished build we'd like to" \
+                 " encourage you to share more details about it. Sharing progress photos, lessons learned, tips, " \
+                 "and construction details helps others to learn. You can find our [posting guidelines here](" \
+                 "https://www.reddit.com/r/BeginnerWoodWorking/wiki/posting_guidelines). \n\n This response has been " \
+                 "made automatically by a bot. "
 
 # Reply when the user has cross posted / doubled dipped - the post concerned will be removed
-DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been removed. Unfortunately, we do not allow " \
-                       "image content posted in this subreddit to be posted in other subreddits or vice versa. This " \
-                       "reduces karma farming in a subreddit that is focused on learning. \n\n This process has been " \
-                       "performed automatically by a bot. If you believe that your post has been removed in error, " \
-                       "then please [message the moderators](" \
-                       "https://www.reddit.com/message/compose?to=%2Fr%2FBeginnerWoodWorking). "
+DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been removed. As per [rule #4](" \
+                       "https://www.reddit.com/r/BeginnerWoodWorking/about/rules/), images and links posted in this " \
+                       "subreddit cannot also be posted in other subreddits. \n\n This action has been performed " \
+                       "automatically by a bot. If you believe that your post has been removed in error then please [" \
+                       "message the moderators](https://www.reddit.com/message/compose?to=%2Fr%2FBeginnerWoodWorking). "
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
