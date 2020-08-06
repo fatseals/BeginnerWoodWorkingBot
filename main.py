@@ -52,12 +52,13 @@ def removeDoubleDippers(submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
 
-    print(f" === Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
+    print(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. ID = {submission.id}")
+    print()
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
         pass
         submission.subreddit.message("Removed double dipper",
                                     f"Removed post by u/{submission.author}: \"{submission.title}\" "
-                                    f"for double dipping \n\n Permalink: {submission.permalink}")
+                                    f"for double dipping \n\n . ID = {submission.id}")
     submission.mod.remove()
 
 
@@ -65,7 +66,8 @@ def firstReviewPass(submission, connection):
     if submission is None:
         return
 
-    print(f"Working on \"{submission.title}\" by u/{submission.author}")
+    print(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+    print()
 
     # Check for double dipping (first pass)
     if isDoubleDipping(submission):
@@ -74,7 +76,8 @@ def firstReviewPass(submission, connection):
 
     # Give standard reply and add post to SQL DB
     else:
-        print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}")
+        print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+        print()
         reply = submission.reply(STANDARD_REPLY)
         reply.mod.distinguish(how="yes", sticky=True)
         sql.insertSubmissionIntoDB(connection, submission, reply)
@@ -100,6 +103,7 @@ def secondReviewPass(submission, connection):
 
     # Un-sticky standard reply
     print(f"Unstickied standard reply on \"{submission.title}\" by u/{submission.author}")
+    print()
     reply = reddit.comment(replyID)
     reply.mod.undistinguish()
     reply.mod.distinguish(how="yes", sticky=False)
@@ -127,13 +131,15 @@ def secondReviewPass(submission, connection):
 
     if deleteFlag and oldestOPComment is not None:
         reply.delete()
-        print(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}")
+        print(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+        print()
 
     # Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
 
     # Message
     print(f"Finished review on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+    print()
 
 
 def review(submission):
@@ -198,6 +204,7 @@ if __name__ == "__main__":
         # Changing the algorithm to add posts made before PASS_DELAY seconds is a bad idea
         if (not possibleMissedSubmission.id in postIDs) and (possibleMissedSubmission.created_utc > filterTime):
             print(f"Missed during downtime: {possibleMissedSubmission.title} {possibleMissedSubmission.id}. Adding...")
+            print()
             sql.insertSubmissionIntoDB(connection, possibleMissedSubmission, None)
 
     connection.close()
@@ -209,3 +216,4 @@ if __name__ == "__main__":
     persistenceThread.start()
 
     print("Started bot")
+    print()

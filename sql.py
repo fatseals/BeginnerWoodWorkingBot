@@ -79,6 +79,7 @@ def removePostByIDFromDB(connection, postID):
     cursor.execute(query, (postID, ))
     connection.commit()
     print(f"{postID} expired from the database")
+    print()
 
 
 def removeExpiredPostsFromDB(connection):
@@ -96,6 +97,7 @@ def removeExpiredPostsFromDB(connection):
         except Error as e:
             print("There's an issue with the removePostByIDFromDB. Probably a tuple thing.")
             print(e)
+            print()
 
 
 def fetchUnreviewedPostsFromDB(connection):
@@ -132,6 +134,7 @@ def fetchCommentIDFromDB(connection, submission):
         print("=======================================================================================================")
         print(e)
         print("=======================================================================================================")
+        print()
         return ""
 
 
