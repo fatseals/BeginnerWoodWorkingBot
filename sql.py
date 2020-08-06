@@ -74,16 +74,16 @@ def removePostFromDB(connection, submission):
 
 
 def removePostByIDFromDB(connection, postID):
-    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = {postID};"
+    query = f"DELETE FROM {TABLE_NAME} WHERE PostID = ?;"
     cursor = connection.cursor()
-    cursor.execute(query)
+    cursor.execute(query, (postID, ))
     connection.commit()
+    print(f"{postID} expired from the database")
 
 
-# Not thread safe due to file IO!
 def removeExpiredPostsFromDB(connection):
     currentUNIXTime = time.time()
-    filter = (currentUNIXTime - REMOVE_AGE,)
+    filter = (currentUNIXTime - REMOVE_AGE, )
     query = f"SELECT PostID FROM {TABLE_NAME} WHERE PostTime < ?;"
     cursor = connection.cursor()
     cursor.execute(query, filter)
@@ -91,8 +91,11 @@ def removeExpiredPostsFromDB(connection):
     connection.commit()
 
     for postID in postIDList:
-        # TODO log error in file
-        removePostByIDFromDB(connection, "".join(postID))
+        try:
+            removePostByIDFromDB(connection, "".join(postID))
+        except Error as e:
+            print("There's an issue with the removePostByIDFromDB. Probably a tuple thing.")
+            print(e)
 
 
 def fetchUnreviewedPostsFromDB(connection):

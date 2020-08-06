@@ -20,7 +20,7 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 1200
+PASS_DELAY = 900
 
 # If the bot should create a mod mail when it removes a post.
 # If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
@@ -127,7 +127,7 @@ def secondReviewPass(submission, connection):
 
     if deleteFlag and oldestOPComment is not None:
         reply.delete()
-        print("Deleted standard reply on \"{submission.title}\" by u/{submission.author}")
+        print(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}")
 
     # Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
