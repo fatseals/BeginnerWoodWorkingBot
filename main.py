@@ -20,7 +20,7 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 300
+PASS_DELAY = 1200
 
 # If the bot should create a mod mail when it removes a post.
 # If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
