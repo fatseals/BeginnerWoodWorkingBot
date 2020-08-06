@@ -117,10 +117,19 @@ def fetchCommentIDFromDB(connection, submission):
     cursor.execute(query, postId)
     commentIDTupleList = cursor.fetchall()
     connection.commit()
-    if commentIDTupleList[0][0] is None:
+    try:
+        if commentIDTupleList[0][0] is None:
+            return ""
+        else:
+            return "".join(commentIDTupleList[0][0])
+    except Exception as e:
+        print("=======================================================================================================")
+        print("This method gets unhappy when testing.")
+        print(f"commentIDTupleList = {commentIDTupleList}")
+        print("=======================================================================================================")
+        print(e)
+        print("=======================================================================================================")
         return ""
-    else:
-        return "".join(commentIDTupleList[0][0])
 
 
 def fetchAllPostIDsFromDB(connection):

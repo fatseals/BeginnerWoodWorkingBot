@@ -49,16 +49,16 @@ def isDoubleDipping(submission):
 
 
 def removeDoubleDippers(submission):
-    #reply = submission.reply(DOUBLE_DIPPING_REPLY)
-    #reply.mod.distinguish(how="yes", sticky=True)
+    reply = submission.reply(DOUBLE_DIPPING_REPLY)
+    reply.mod.distinguish(how="yes", sticky=True)
 
     print(f" === Removed post by u/{submission.author}: \"{submission.title}\" for double dipping")
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
         pass
-        #submission.subreddit.message("Removed double dipper",
-        #                             f"Removed post by u/{submission.author}: \"{submission.title}\" "
-        #                             f"for double dipping \n\n Permalink: {submission.permalink}")
-    #submission.mod.remove()
+        submission.subreddit.message("Removed double dipper",
+                                    f"Removed post by u/{submission.author}: \"{submission.title}\" "
+                                    f"for double dipping \n\n Permalink: {submission.permalink}")
+    submission.mod.remove()
 
 
 def firstReviewPass(submission, connection):
@@ -75,9 +75,9 @@ def firstReviewPass(submission, connection):
     # Give standard reply and add post to SQL DB
     else:
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}")
-        #reply = submission.reply(STANDARD_REPLY)
-        #reply.mod.distinguish(how="yes", sticky=True)
-        #sql.insertSubmissionIntoDB(connection, submission, reply)
+        reply = submission.reply(STANDARD_REPLY)
+        reply.mod.distinguish(how="yes", sticky=True)
+        sql.insertSubmissionIntoDB(connection, submission, reply)
 
 
 def secondReviewPass(submission, connection):
@@ -100,9 +100,9 @@ def secondReviewPass(submission, connection):
 
     # Un-sticky standard reply
     print(f"Unstickied standard reply on \"{submission.title}\" by u/{submission.author}")
-    #reply = reddit.comment(replyID)
-    #reply.mod.undistinguish()
-    #reply.mod.distinguish(how="yes", sticky=False)
+    reply = reddit.comment(replyID)
+    reply.mod.undistinguish()
+    reply.mod.distinguish(how="yes", sticky=False)
 
     # Assumes the oldest top level comment by the poster is the writeup
     # If the writeup exists, the standard reply should be deleted (assuming it has no children)
@@ -121,13 +121,12 @@ def secondReviewPass(submission, connection):
     deleteFlag = True
     comments = submission.comments.list()
     for comment in comments:
-        #if comment.parent_id == ("t1_" + reply.id):
-        if True: # TODO Replace if with one above
+        if comment.parent_id == ("t1_" + reply.id):
             deleteFlag = False
             break
 
     if deleteFlag and oldestOPComment is not None:
-        #reply.delete()
+        reply.delete()
         print("Deleted standard reply on \"{submission.title}\" by u/{submission.author}")
 
     # Remove post from SQL DB

@@ -1,3 +1,2 @@
 source venv/bin/activate
-python3 main.py > output.log &
-echo "started bot and moved to background"
+python3 main.py
