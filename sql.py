@@ -97,7 +97,7 @@ def removeExpiredPostsFromDB(connection):
         except Error as e:
             print("There's an issue with the removePostByIDFromDB. Probably a tuple thing.")
             print(e)
-            print()
+            print("\n")
 
 
 def fetchUnreviewedPostsFromDB(connection):
@@ -134,7 +134,7 @@ def fetchCommentIDFromDB(connection, submission):
         print("=======================================================================================================")
         print(e)
         print("=======================================================================================================")
-        print()
+        print("\n")
         return ""
 
 
