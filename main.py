@@ -36,6 +36,9 @@ PRAW_INI_SITE = "bot"
 # Subreddit for the bot to operate on
 SUBREDDIT = "BeginnerWoodWorking"
 
+# Flair text for links the standard reply should not be given on
+NO_REPLY_FLAIR_TEXT = "Discussion/Question ⁉️"
+
 def isDoubleDipping(submission):
     if not submission.is_self:
         duplicates = submission.duplicates()
@@ -69,18 +72,21 @@ def firstReviewPass(submission, connection):
     print(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
     print("\n")
 
+    reply = None
+
     # Check for double dipping (first pass)
     if isDoubleDipping(submission):
         removeDoubleDippers(submission)
-        return
 
     # Give standard reply and add post to SQL DB
-    else:
+    elif submission.link_flair_Text == NO_REPLY_FLAIR_TEXT:
+        return
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
         reply = submission.reply(STANDARD_REPLY)
         reply.mod.distinguish(how="yes", sticky=True)
-        sql.insertSubmissionIntoDB(connection, submission, reply)
+
+    sql.insertSubmissionIntoDB(connection, submission, reply)
 
 
 def secondReviewPass(submission, connection):
