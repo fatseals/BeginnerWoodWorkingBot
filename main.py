@@ -1,7 +1,10 @@
+import sqlite3
 import threading
 import time as t
 
 import sql
+import notifier
+
 import praw
 
 # Reply for encouraging discussion - placed on every image post
@@ -33,13 +36,17 @@ USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
 # Site in praw.ini with bot credentials
 PRAW_INI_SITE = "bot"
 
+# Bot username
+BOT_USERNAME = "BeginnerWoodworkBot"
+
 # Subreddit for the bot to operate on
 SUBREDDIT = "BeginnerWoodWorking"
 
 # Flair text for links the standard reply should not be given on
-NO_REPLY_FLAIR_TEXT = "Discussion/Question ⁉️"
+NO_REPLY_FLAIR_TEXT = "Discussion/Question"
 
-def isDoubleDipping(submission):
+
+def isDoubleDipping(submission: praw.models.Submission):
     if not submission.is_self:
         duplicates = submission.duplicates()
         for duplicate in duplicates:
@@ -51,21 +58,20 @@ def isDoubleDipping(submission):
     return False
 
 
-def removeDoubleDippers(submission):
+def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.Submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
 
     print(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. ID = {submission.id}")
     print("\n")
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
-        pass
-        submission.subreddit.message("Removed double dipper",
-                                    f"Removed post by u/{submission.author}: \"{submission.title}\" "
-                                    f"for double dipping \n\n . ID = {submission.id}")
+        subject = "Removed double dipping post (Rule #4)"
+        body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 violation."
+        sql.insertBotMessageIntoDB(connection, subject, body)
     submission.mod.remove()
 
 
-def firstReviewPass(submission, connection):
+def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
     if submission is None:
         return
 
@@ -76,13 +82,10 @@ def firstReviewPass(submission, connection):
 
     # Check for double dipping (first pass)
     if isDoubleDipping(submission):
-        removeDoubleDippers(submission)
+        removeDoubleDippers(connection, submission)
 
-   # Skip standard relpy for posts flaired with NO_REPLY_FLAIR_TEXT
-    elif submission.link_flair_text == NO_REPLY_FLAIR_TEXT:
-        return
-
-    else:
+    # Skip standard reply for posts flared with NO_REPLY_FLAIR_TEXT
+    elif not (NO_REPLY_FLAIR_TEXT in submission.link_flair_text):
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
         reply = submission.reply(STANDARD_REPLY)
@@ -91,13 +94,13 @@ def firstReviewPass(submission, connection):
     sql.insertSubmissionIntoDB(connection, submission, reply)
 
 
-def secondReviewPass(submission, connection):
+def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
     if submission is None:
         return
 
     # Check for double dipping and remove submission if needed
     if isDoubleDipping(submission):
-        removeDoubleDippers(submission)
+        removeDoubleDippers(connection, submission)
         # Remove post from SQL DB
         sql.removePostFromDB(connection, submission)
         return
@@ -110,7 +113,7 @@ def secondReviewPass(submission, connection):
         return
 
     # Un-sticky standard reply
-    print(f"Unstickied standard reply on \"{submission.title}\" by u/{submission.author}")
+    print(f"Un-stickied standard reply on \"{submission.title}\" by u/{submission.author}")
     print("\n")
     reply = reddit.comment(replyID)
     reply.mod.undistinguish()
@@ -150,7 +153,7 @@ def secondReviewPass(submission, connection):
     print("\n")
 
 
-def review(submission):
+def review(submission: praw.models.Submission):
     connection = sql.createDBConnection(sql.DB_FILE)
 
     firstReviewPass(submission, connection)
@@ -175,7 +178,29 @@ def main():
 
 
 def persistence():
+    # Persistence does not handle messages
     connection = sql.createDBConnection(sql.DB_FILE)
+    
+    # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
+    # Submissions that were made during the downtime will only get the second review pass.
+    postIDList = sql.fetchAllPostIDsFromDB(connection)
+    filterTime = t.time() - PASS_DELAY
+    for submission in subreddit.stream.submissions(pause_after=0):
+        # Exit when complete
+        if submission is None:
+            break
+
+        # skip self posts
+        if submission.is_self:
+            continue
+
+        # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
+        # Changing the algorithm to add posts made before PASS_DELAY seconds is a bad idea
+        if (submission.id not in postIDList) and (submission.created_utc > filterTime):
+            print(f"Missed during downtime: {submission.title} {submission.id}. Adding...")
+            print("\n")
+            sql.insertSubmissionIntoDB(connection, submission, "")
+    
     while True:
         sql.removeExpiredPostsFromDB(connection)
         postIDList = sql.fetchUnreviewedPostsFromDB(connection)
@@ -188,40 +213,28 @@ def persistence():
         t.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
 
 
+def messagePasser():
+    connection = sql.createDBConnection(sql.DB_FILE)
+    for message in reddit.inbox.messages(skip_existing=True):
+        sql.insertUserMessageIntoDB(connection, message)
+
+
 if __name__ == "__main__":
     # Setup
     reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
     subreddit = reddit.subreddit(SUBREDDIT)
-    sql.createTable()
-
-    # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
-    # Submissions that were made during the downtime will only get the second review pass.
-    connection = sql.createDBConnection(sql.DB_FILE)
-    postIDs = sql.fetchAllPostIDsFromDB(connection)
-    filterTime = t.time() - PASS_DELAY
-    for possibleMissedSubmission in subreddit.stream.submissions(pause_after=0):
-        # Exit when complete
-        if possibleMissedSubmission is None:
-            break
-
-        # skip self posts
-        if possibleMissedSubmission.is_self:
-            continue
-
-        # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
-        # Changing the algorithm to add posts made before PASS_DELAY seconds is a bad idea
-        if (not possibleMissedSubmission.id in postIDs) and (possibleMissedSubmission.created_utc > filterTime):
-            print(f"Missed during downtime: {possibleMissedSubmission.title} {possibleMissedSubmission.id}. Adding...")
-            print("\n")
-            sql.insertSubmissionIntoDB(connection, possibleMissedSubmission, None)
-
-    connection.close()
+    sql.createTables()
 
     # Start threads
     mainThread = threading.Thread(target=main)
     persistenceThread = threading.Thread(target=persistence)
+    messagePasserThread = threading.Thread(target=messagePasser)
+    notifierThread = threading.Thread(target=notifier.notifier)
+
     mainThread.start()
     persistenceThread.start()
+    messagePasserThread.start()
+    notifierThread.start()
 
     print("Started bot")
     print("\n")
