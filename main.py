@@ -92,6 +92,7 @@ def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Conn
         reply.mod.distinguish(how="yes", sticky=True)
     else:
         print(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+        print("\n")
 
     sql.insertSubmissionIntoDB(connection, submission, reply)
 
@@ -221,6 +222,7 @@ def messagePasser():
         if message.was_comment:
             continue
         print(f"Got message \"{message.subject}\" from u/{message.author.name}")
+        print("\n")
         sql.insertUserMessageIntoDB(connection, message)
 
 
