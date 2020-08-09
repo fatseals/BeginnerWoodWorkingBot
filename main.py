@@ -85,11 +85,13 @@ def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Conn
         removeDoubleDippers(connection, submission)
 
     # Skip standard reply for posts flared with NO_REPLY_FLAIR_TEXT
-    elif (submission.link_flair_text is not None) and (NO_REPLY_FLAIR_TEXT not in submission.link_flair_text):
+    elif (submission.link_flair_text is None) or (NO_REPLY_FLAIR_TEXT not in submission.link_flair_text):
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
         reply = submission.reply(STANDARD_REPLY)
         reply.mod.distinguish(how="yes", sticky=True)
+    else:
+        print(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
     sql.insertSubmissionIntoDB(connection, submission, reply)
 
