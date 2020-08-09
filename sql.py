@@ -65,7 +65,6 @@ def createTables():
         connection.close()
     except Error as e:
         print(e)
-        os._exit(0)
 
 
 def insertSubmissionIntoDB(connection: sqlite3.Connection, submission: praw.models.Submission, reply: str):
@@ -103,12 +102,12 @@ def insertBotMessageIntoDB(connection: sqlite3.Connection, subject: str, body: s
     if connection is None:
         return
 
-    query = f"INSERT INTO {MESSAGE_TABLE_NAME} (MessageID , Subject, Body, From, IsUserMessage, MessageTime) " \
+    query = f"INSERT INTO {MESSAGE_TABLE_NAME} (MessageID , Subject, Body, IsUserMessage, MessageTime) " \
             f"VALUES (?,?,?,?,?,?)"
     values = None
     if subject is not None or subject is "":
         UID = str(time.time()) + body
-        values = (UID, subject, body, "", 0, time.time())
+        values = (UID, subject, body, 0, time.time())
     else:
         return
     cursor = connection.cursor()
