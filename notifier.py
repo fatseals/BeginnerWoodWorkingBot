@@ -8,11 +8,13 @@ import praw
 # Site in praw.ini with notifier bot credentials
 NOTIFIER_PRAW_INI_SITE = "notifierBot"
 
+# User agent for notifier bot
+NOTIFIER_USER_AGENT = "B-W-Notifier-Bot by u/-CrashDive-"
 
 def notifier():
 
     connection = sql.createDBConnection(sql.DB_FILE)
-    reddit = praw.Reddit(NOTIFIER_PRAW_INI_SITE, user_agent=main.USER_AGENT)
+    reddit = praw.Reddit(NOTIFIER_PRAW_INI_SITE, user_agent=NOTIFIER_USER_AGENT)
     subreddit = reddit.subreddit(main.SUBREDDIT)
 
     while True:

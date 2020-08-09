@@ -85,7 +85,7 @@ def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Conn
         removeDoubleDippers(connection, submission)
 
     # Skip standard reply for posts flared with NO_REPLY_FLAIR_TEXT
-    elif not (NO_REPLY_FLAIR_TEXT in submission.link_flair_text):
+    elif (submission.link_flair_text is not None) and (NO_REPLY_FLAIR_TEXT not in submission.link_flair_text):
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
         reply = submission.reply(STANDARD_REPLY)
@@ -215,9 +215,8 @@ def persistence():
 
 def messagePasser():
     connection = sql.createDBConnection(sql.DB_FILE)
-    startTime = time.time()
-    for message in reddit.inbox.messages():
-        if message.created_utc < startTime or message.was_comment:
+    for message in reddit.inbox.stream(skip_existing=True):
+        if message.was_comment:
             continue
         print(f"Got message \"{message.subject}\" from u/{message.author.name}")
         sql.insertUserMessageIntoDB(connection, message)
