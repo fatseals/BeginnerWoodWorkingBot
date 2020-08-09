@@ -23,7 +23,7 @@ TABLE_NAME = "posts"
 MESSAGE_TABLE_NAME = "messages"
 
 CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRIMARY KEY, ReviewTime integer, " \
-                     f"PostTime integer, ReplyID text ); "
+                     f"PostTime integer, ReplyID text );"
 # === Table entries: ===
 # PostID is the Reddit assigned ID for the post.
 # ReviewTime is the UNIX time (in seconds) + 120s that the post was due to be reviewed

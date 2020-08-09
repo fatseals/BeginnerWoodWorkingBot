@@ -1,6 +1,6 @@
 import sqlite3
 import threading
-import time as t
+import time
 
 import sql
 import notifier
@@ -160,7 +160,7 @@ def review(submission: praw.models.Submission):
 
     # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
     # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
-    t.sleep(PASS_DELAY)
+    time.sleep(PASS_DELAY)
 
     secondReviewPass(submission, connection)
 
@@ -184,7 +184,7 @@ def persistence():
     # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
     # Submissions that were made during the downtime will only get the second review pass.
     postIDList = sql.fetchAllPostIDsFromDB(connection)
-    filterTime = t.time() - PASS_DELAY
+    filterTime = time.time() - PASS_DELAY
     for submission in subreddit.stream.submissions(pause_after=0):
         # Exit when complete
         if submission is None:
@@ -208,14 +208,15 @@ def persistence():
             submission = reddit.submission(postID)
             if submission is not None:
                 secondReviewPass(submission, connection)
-            t.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
+            time.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
 
-        t.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
+        time.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
 
 
 def messagePasser():
     connection = sql.createDBConnection(sql.DB_FILE)
-    for message in reddit.inbox.messages(skip_existing=True):
+    # TODO skip messages that are read and mark messages that are read as read
+    for message in reddit.inbox.messages(limit=0):
         sql.insertUserMessageIntoDB(connection, message)
 
 
@@ -224,6 +225,8 @@ if __name__ == "__main__":
     reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
     subreddit = reddit.subreddit(SUBREDDIT)
     sql.createTables()
+
+    time.sleep(1)
 
     # Start threads
     mainThread = threading.Thread(target=main)
