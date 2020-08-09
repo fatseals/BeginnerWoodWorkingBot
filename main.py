@@ -79,7 +79,7 @@ def firstReviewPass(submission, connection):
         removeDoubleDippers(submission)
 
     # Give standard reply and add post to SQL DB
-    elif submission.link_flair_Text == NO_REPLY_FLAIR_TEXT:
+    elif submission.link_flair_text == NO_REPLY_FLAIR_TEXT:
         return
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
