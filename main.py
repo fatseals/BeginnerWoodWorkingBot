@@ -78,9 +78,11 @@ def firstReviewPass(submission, connection):
     if isDoubleDipping(submission):
         removeDoubleDippers(submission)
 
-    # Give standard reply and add post to SQL DB
+   # Skip standard relpy for posts flaired with NO_REPLY_FLAIR_TEXT
     elif submission.link_flair_text == NO_REPLY_FLAIR_TEXT:
         return
+
+    else:
         print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         print("\n")
         reply = submission.reply(STANDARD_REPLY)
