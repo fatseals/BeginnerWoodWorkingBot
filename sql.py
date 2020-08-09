@@ -60,6 +60,7 @@ def createTables():
         connection = createDBConnection(DB_FILE)
         cursor = connection.cursor()
         cursor.execute(CREATE_TABLE_QUERY)
+        connection.commit()
         cursor.execute(CREATE_MESSAGE_TABLE_QUERY)
         connection.commit()
         connection.close()
