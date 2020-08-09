@@ -65,7 +65,7 @@ def createTables():
         connection.close()
     except Error as e:
         print(e)
-        os._exit()
+        os._exit(0)
 
 
 def insertSubmissionIntoDB(connection: sqlite3.Connection, submission: praw.models.Submission, reply: str):
