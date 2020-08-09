@@ -215,8 +215,11 @@ def persistence():
 
 def messagePasser():
     connection = sql.createDBConnection(sql.DB_FILE)
-    # TODO skip messages that are read and mark messages that are read as read
-    for message in reddit.inbox.messages(limit=0):
+    startTime = time.time()
+    for message in reddit.inbox.messages():
+        if message.created_utc < startTime or message.was_comment:
+            continue
+        print(f"Got message \"{message.subject}\" from u/{message.author.name}")
         sql.insertUserMessageIntoDB(connection, message)
 
 

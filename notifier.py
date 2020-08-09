@@ -26,4 +26,4 @@ def notifier():
                 body = f"{messageTuple[2]} \n\nThe above message was sent to BeginnerWoodworkBot by u/{messageTuple[3]}"
                 subreddit.message(subject, body)
 
-            time.sleep(300)
+            time.sleep(60)
