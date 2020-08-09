@@ -35,12 +35,12 @@ CREATE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} ( PostID text PRI
 # Posts older than REMOVE_AGE should be removed from the table and an error should be logged with the PostID.
 
 CREATE_MESSAGE_TABLE_QUERY = f"CREATE TABLE IF NOT EXISTS {MESSAGE_TABLE_NAME} ( MessageID text PRIMARY KEY, " \
-                             f"Subject text, Body text, From text, IsUserMessage integer, MessageTime integer );"
+                             f"Subject text, Body text, Sender text, IsUserMessage integer, MessageTime integer );"
 # === Table entries: ===
 # MessageID is ideally the ID of the message (only needed as a primary key). It
 # Subject is the subject line of the message
 # Body is the body text of the message
-# From is the name of the user that sent the message.
+# Sender is the name of the user that sent the message.
 # Is user message is a boolean denoting if the user sent the message of of it is a notification made by the moderator /
 #     bot. 0 = moderator bot message/ 1 = message from the user
 # MessageTime is the time the message was added to the database
@@ -87,7 +87,7 @@ def insertUserMessageIntoDB(connection: sqlite3.Connection, message: praw.models
     if connection is None:
         return
 
-    query = f"INSERT INTO {MESSAGE_TABLE_NAME} (MessageID , Subject, Body, From, IsUserMessage, MessageTime) " \
+    query = f"INSERT INTO {MESSAGE_TABLE_NAME} (MessageID , Subject, Body, Sender, IsUserMessage, MessageTime) " \
             f"VALUES (?,?,?,?,?,?)"
     values = None
     if message is not None:
@@ -204,7 +204,7 @@ def fetchAllMessagesFromDB(connection: sqlite3.Connection):
     if connection is None:
         return
 
-    query = f"SELECT MessageID , Subject, Body, From, IsUserMessage, MessageTime from {MESSAGE_TABLE_NAME}"
+    query = f"SELECT MessageID , Subject, Body, Sender, IsUserMessage, MessageTime FROM {MESSAGE_TABLE_NAME}"
     cursor = connection.cursor()
     cursor.execute(query)
     messageTuples = cursor.fetchall()
