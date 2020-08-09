@@ -31,5 +31,6 @@ def notifier():
                 subreddit.message(subject, body)
                 print(f"sent modmail \"{messageTuple[1]}\" from u/{messageTuple[3]}")
                 print("\n")
+            sql.removeMessageByIDFromDB(connection, messageTuple[0])
 
             time.sleep(60)

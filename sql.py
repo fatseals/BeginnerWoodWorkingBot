@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from sqlite3 import Error
 import time
@@ -161,7 +160,7 @@ def removeMessageByIDFromDB(connection: sqlite3.Connection, messageID: str):
     cursor = connection.cursor()
     cursor.execute(query, (messageID, ))
     connection.commit()
-    print(f"{messageID} removed from table {MESSAGE_TABLE_NAME}")
+    print(f"{messageID} removed from database {MESSAGE_TABLE_NAME}")
     print()
 
 
