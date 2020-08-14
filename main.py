@@ -57,6 +57,19 @@ def isDoubleDipping(submission: praw.models.Submission):
 
     return False
 
+def isAQuestion(submission: praw.models.Submission):
+
+    flairText = submission.link_flair_text
+    if submission.link_flair_text is None:
+        flairText = ""
+
+
+    if "?" in submission.title:
+        return True
+    elif NO_REPLY_FLAIR_TEXT in flairText:
+        return True
+
+    return False
 
 def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.Submission):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
@@ -64,6 +77,7 @@ def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.
 
     print(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. ID = {submission.id}")
     print("\n")
+
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
         subject = "Removed double dipping post (Rule #4)"
         body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 violation."
@@ -73,28 +87,30 @@ def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.
 
 def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
     if submission is None:
-        return
+        return False
 
     print(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
     print("\n")
 
-    reply = None
+    # Give standard reply for posts that aren't questions
+    if isAQuestion(submission):
+        print(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+        print("\n")
+        return False
 
     # Check for double dipping (first pass)
     if isDoubleDipping(submission):
         removeDoubleDippers(connection, submission)
+        return False
 
-    # Skip standard reply for posts flared with NO_REPLY_FLAIR_TEXT
-    elif (submission.link_flair_text is None) or (NO_REPLY_FLAIR_TEXT not in submission.link_flair_text):
-        print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-        print("\n")
-        reply = submission.reply(STANDARD_REPLY)
-        reply.mod.distinguish(how="yes", sticky=True)
-    else:
-        print(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-        print("\n")
-
+    # Actions to perform if the post is not double dipping and is not a question
+    print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+    print("\n")
+    reply = submission.reply(STANDARD_REPLY)
+    reply.mod.distinguish(how="yes", sticky=True)
+    reply.downvote()
     sql.insertSubmissionIntoDB(connection, submission, reply)
+    return True
 
 
 def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
@@ -159,13 +175,13 @@ def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Con
 def review(submission: praw.models.Submission):
     connection = sql.createDBConnection(sql.DB_FILE)
 
-    firstReviewPass(submission, connection)
+    if firstReviewPass(submission, connection):
 
-    # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
-    # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
-    time.sleep(PASS_DELAY)
+        # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
+        # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
+        time.sleep(PASS_DELAY)
 
-    secondReviewPass(submission, connection)
+        secondReviewPass(submission, connection)
 
 
 def main():
