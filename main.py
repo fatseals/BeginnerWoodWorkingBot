@@ -297,7 +297,7 @@ if __name__ == "__main__":
     mainLogger = logging.getLogger(__name__)
     mainLogger.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("%(created)f : %(name)s : %(levelno)s :: %(message)s")
+    formatter = logging.Formatter("%(created)f : %(name)s : %(funcName)s : %(levelname)s :: %(message)s")
 
     fileHandler = logging.FileHandler(LOG_FILE)
     fileHandler.setLevel(LOGGING_LEVEL)
