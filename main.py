@@ -316,7 +316,7 @@ if __name__ == "__main__":
     mainThread = threading.Thread(target=main, args=[mainLogger])
     persistenceThread = threading.Thread(target=persistence, args=[mainLogger])
     messagePasserThread = threading.Thread(target=messagePasser, args=[mainLogger])
-    notifierThread = threading.Thread(target=notifier.notifier, args=[mainLogger])
+    notifierThread = threading.Thread(target=notifier.notifier)
 
     mainThread.start()
     persistenceThread.start()
