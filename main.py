@@ -1,6 +1,8 @@
+import os
 import sqlite3
 import threading
 import time
+import logging
 
 import sql
 import notifier
@@ -45,6 +47,12 @@ SUBREDDIT = "BeginnerWoodWorking"
 # Flair text for links the standard reply should not be given on
 NO_REPLY_FLAIR_TEXT = "Discussion/Question"
 
+# Location of the log file
+LOG_FILE = "bot.log"
+
+# Level of detail for the logger
+LOGGING_LEVEL = logging.INFO
+
 
 def isDoubleDipping(submission: praw.models.Submission):
     if not submission.is_self:
@@ -57,55 +65,56 @@ def isDoubleDipping(submission: praw.models.Submission):
 
     return False
 
+
 def isAQuestion(submission: praw.models.Submission):
 
     flairText = submission.link_flair_text
     if submission.link_flair_text is None:
         flairText = ""
 
-
     if "?" in submission.title:
         return True
+
     elif NO_REPLY_FLAIR_TEXT in flairText:
         return True
 
     return False
 
-def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.Submission):
+
+def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.Submission, logger: logging.Logger):
     reply = submission.reply(DOUBLE_DIPPING_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
 
-    print(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. ID = {submission.id}")
-    print("\n")
+    logger.info(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. "
+                f"ID = {submission.id}")
 
     if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
         subject = "Removed double dipping post (Rule #4)"
         body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 violation."
         sql.insertBotMessageIntoDB(connection, subject, body)
+        logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
     submission.mod.remove()
 
 
-def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
+def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection, logger: logging.Logger):
     if submission is None:
+        logger.debug("Submission is None. Ignoring.")
         return False
 
-    print(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-    print("\n")
+    logger.info(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
     # Give standard reply for posts that aren't questions
     if isAQuestion(submission):
-        print(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-        print("\n")
+        logger.info(f"Gave no reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
         return False
 
     # Check for double dipping (first pass)
     if isDoubleDipping(submission):
-        removeDoubleDippers(connection, submission)
+        removeDoubleDippers(connection, submission, logger)
         return False
 
     # Actions to perform if the post is not double dipping and is not a question
-    print(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-    print("\n")
+    logger.info(f"Gave standard reply to \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
     reply = submission.reply(STANDARD_REPLY)
     reply.mod.distinguish(how="yes", sticky=True)
     reply.downvote()
@@ -113,13 +122,14 @@ def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Conn
     return True
 
 
-def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection):
+def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection, logger: logging.Logger):
     if submission is None:
+        logger.debug("Submission is None. Ignoring.")
         return
 
     # Check for double dipping and remove submission if needed
     if isDoubleDipping(submission):
-        removeDoubleDippers(connection, submission)
+        removeDoubleDippers(connection, submission, logger)
         # Remove post from SQL DB
         sql.removePostFromDB(connection, submission)
         return
@@ -132,8 +142,7 @@ def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Con
         return
 
     # Un-sticky standard reply
-    print(f"Un-stickied standard reply on \"{submission.title}\" by u/{submission.author}")
-    print("\n")
+    logger.info(f"Un-stickied standard reply on \"{submission.title}\" by u/{submission.author}")
     reply = reddit.comment(replyID)
     reply.mod.undistinguish()
     reply.mod.distinguish(how="yes", sticky=False)
@@ -161,43 +170,81 @@ def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Con
 
     if deleteFlag and oldestOPComment is not None:
         reply.delete()
-        print(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-        print("\n")
+        logger.info(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
     # Remove post from SQL DB
     sql.removePostFromDB(connection, submission)
 
     # Message
-    print(f"Finished review on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
-    print("\n")
+    logger.info(f"Finished review on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
 
-def review(submission: praw.models.Submission):
+def review(submission: praw.models.Submission, logger: logging.Logger):
     connection = sql.createDBConnection(sql.DB_FILE)
 
-    if firstReviewPass(submission, connection):
+    if firstReviewPass(submission, connection, logger):
 
-        # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits after
-        # posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
+        # Waiting for PASS_DELAY seconds allows the bot to pick up on double dippers if they post in other subreddits
+        # after posting in beginner wood working. Also allows the standard reply to be removed to cut down on spam.
         time.sleep(PASS_DELAY)
 
-        secondReviewPass(submission, connection)
+        secondReviewPass(submission, connection, logger)
 
 
-def main():
+def main(logger: logging.Logger):
     for submission in subreddit.stream.submissions(skip_existing=True):
-        if submission is None:
-            continue
+        try:
+            if submission is None:
+                logger.debug("Submission is None. Ignoring.")
+                continue
 
-        # skip self posts
-        if submission.is_self:
-            continue
-        thread = threading.Thread(target=review, args=[submission])
-        thread.start()
+            # skip self posts
+            if submission.is_self:
+                logger.info(f"Skipping submission {submission.title}: submission is self.")
+                continue
+
+            # Start a review of the post in it's own thread.
+            thread = threading.Thread(target=review, args=[submission])
+            thread.start()
+
+        except Exception as mainException:
+            # Log the error
+            logger.error("Unable to handle a submission in the main thread. "
+                         "The program will continue but the submission will not be reviewed. "
+                         "Printing stack trace and sending notification.")
+            logger.error(mainException)
+
+            # Send a mod mail
+            try:
+                if CREATE_MOD_MAIL:
+                    connection = sql.createDBConnection(sql.DB_FILE)
+                    subject = "Bot error. Bot was unable to handle a submission."
+                    body = f"Unable to handle {submission.id}:{submission.title}.The bot will continue to function."
+                    sql.insertBotMessageIntoDB(connection, subject, body)
+                    logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
+            except Exception as mailException:
+                logger.error("Was unable to send mod mail about unreviewed post. Printing stack stace.")
+                logger.error(mailException)
+
+    # Actions to perform if main loop ever exits
+    logger.critical("The main loop has exited. The bot will no longer function. Sending notification")
+    try:
+        if CREATE_MOD_MAIL:
+            connection = sql.createDBConnection(sql.DB_FILE)
+            subject = "Critical bot error. Bot needs to be restarted"
+            body = f"The main loop was exited. Check {LOG_FILE} for details."
+            sql.insertBotMessageIntoDB(connection, subject, body)
+            logger.debug(f"Inserted mod mail into the db for main loop exit")
+    except Exception as mailException:
+        logger.error("Was unable to send mod mail about unreviewed post. Printing stack stace.")
+        logger.error(mailException)
+
+    # Exit
+    os._exit(1)
 
 
-def persistence():
-    # Persistence does not handle messages
+def persistence(logger: logging.Logger):
+    # Persistence does not handle messages sent during downtime
     connection = sql.createDBConnection(sql.DB_FILE)
     
     # Add posts that were created during downtime (up to PASS_DELAY seconds ago) to the SQL DB
@@ -216,8 +263,7 @@ def persistence():
         # Add all posts made in the last PASS_DELAY seconds and not already in the database into the database
         # Changing the algorithm to add posts made before PASS_DELAY seconds is a bad idea
         if (submission.id not in postIDList) and (submission.created_utc > filterTime):
-            print(f"Missed during downtime: {submission.title} {submission.id}. Adding...")
-            print("\n")
+            logger.info(f"Missed during downtime: {submission.title} {submission.id}. Adding...")
             sql.insertSubmissionIntoDB(connection, submission, "")
     
     while True:
@@ -226,40 +272,55 @@ def persistence():
         for postID in postIDList:
             submission = reddit.submission(postID)
             if submission is not None:
-                secondReviewPass(submission, connection)
+                secondReviewPass(submission, connection, logger)
             time.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
 
         time.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
 
 
-def messagePasser():
+def messagePasser(logger: logging.Logger):
     connection = sql.createDBConnection(sql.DB_FILE)
     for message in reddit.inbox.stream(skip_existing=True):
+        # Skip replies of comments
         if message.was_comment:
             continue
-        print(f"Got message \"{message.subject}\" from u/{message.author.name}")
-        print("\n")
+        logger.info(f"Got message \"{message.subject}\" from u/{message.author.name}")
         sql.insertUserMessageIntoDB(connection, message)
 
 
 if __name__ == "__main__":
-    # Setup
+    # Setup logging
+    mainLogger = logging.getLogger(__name__)
+    mainLogger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(created)f:%(name)s:%(message)s")
+
+    fileHandler = logging.FileHandler(LOG_FILE)
+    fileHandler.setLevel(LOGGING_LEVEL)
+    fileHandler.setFormatter(formatter)
+
+    streamHandler = logging.StreamHandler()
+    streamHandler.setFormatter(formatter)
+
+    mainLogger.addHandler(fileHandler)
+    mainLogger.addHandler(streamHandler)
+
+    # Setup reddit
     reddit = praw.Reddit(PRAW_INI_SITE, user_agent=USER_AGENT)
     subreddit = reddit.subreddit(SUBREDDIT)
     sql.createTables()
 
-    time.sleep(1)
+    time.sleep(1)  # Hacky way of making sure the tables have had time to be created
 
     # Start threads
-    mainThread = threading.Thread(target=main)
-    persistenceThread = threading.Thread(target=persistence)
-    messagePasserThread = threading.Thread(target=messagePasser)
-    notifierThread = threading.Thread(target=notifier.notifier)
+    mainThread = threading.Thread(target=main, args=[mainLogger])
+    persistenceThread = threading.Thread(target=persistence, args=[mainLogger])
+    messagePasserThread = threading.Thread(target=messagePasser, args=[mainLogger])
+    notifierThread = threading.Thread(target=notifier.notifier, args=[mainLogger])
 
     mainThread.start()
     persistenceThread.start()
     messagePasserThread.start()
     notifierThread.start()
 
-    print("Started bot")
-    print("\n")
+    mainLogger.info("Started bot")
