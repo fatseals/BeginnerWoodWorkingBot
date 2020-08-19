@@ -51,7 +51,7 @@ NO_REPLY_FLAIR_TEXT = "Discussion/Question"
 LOG_FILE = "bot.log"
 
 # Level of detail for the logger
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
 
 
 def isDoubleDipping(submission: praw.models.Submission):
@@ -192,7 +192,9 @@ def review(submission: praw.models.Submission, logger: logging.Logger):
 
 
 def main(logger: logging.Logger):
+    logger.debug("Entered main()")
     for submission in subreddit.stream.submissions(skip_existing=True):
+        logger.debug("Top of main loop")
         try:
             if submission is None:
                 logger.debug("Submission is None. Ignoring.")
