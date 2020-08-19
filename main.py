@@ -206,8 +206,10 @@ def main(logger: logging.Logger):
                 continue
 
             # Start a review of the post in it's own thread.
-            thread = threading.Thread(target=review, args=[submission])
+            logger.debug(f"Making thread for {submission.title}")
+            thread = threading.Thread(target=review, args=[submission, logger])
             thread.start()
+            logger.debug(f"made thread for {submission.title}")
 
         except Exception as mainException:
             # Log the error
@@ -295,7 +297,7 @@ if __name__ == "__main__":
     mainLogger = logging.getLogger(__name__)
     mainLogger.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("%(created)f:%(name)s:%(message)s")
+    formatter = logging.Formatter("%(created)f : %(name)s : %(levelno)s :: %(message)s")
 
     fileHandler = logging.FileHandler(LOG_FILE)
     fileHandler.setLevel(LOGGING_LEVEL)
