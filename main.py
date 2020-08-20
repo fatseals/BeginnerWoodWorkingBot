@@ -8,6 +8,8 @@ import sql
 import notifier
 
 import praw
+from prawcore import ServerError
+from praw.exceptions import APIException
 
 # Reply for encouraging discussion - placed on every image post
 STANDARD_REPLY = "Thank you for posting to r/BeginnerWoodWorking! If you have submitted a finished build we'd like to" \
@@ -192,59 +194,36 @@ def review(submission: praw.models.Submission, logger: logging.Logger):
 
 
 def main(logger: logging.Logger):
-    logger.debug("Entered main()")
-    for submission in subreddit.stream.submissions(skip_existing=True):
-        logger.debug("Top of main loop")
+    while True:
+        logger.debug("Starting submission stream.")
         try:
-            if submission is None:
-                logger.debug("Submission is None. Ignoring.")
-                continue
+            for submission in subreddit.stream.submissions(skip_existing=True):
+                if submission is None:
+                    logger.debug("Submission is None. Ignoring.")
+                    continue
 
-            # skip self posts
-            if submission.is_self:
-                logger.info(f"Skipping submission {submission.title}: submission is self.")
-                continue
+                # skip self posts
+                if submission.is_self:
+                    logger.info(f"Skipping submission {submission.title}: submission is self.")
+                    continue
 
-            # Start a review of the post in it's own thread.
-            logger.debug(f"Making thread for {submission.title}")
-            thread = threading.Thread(target=review, args=[submission, logger])
-            thread.start()
-            logger.debug(f"made thread for {submission.title}")
+                # Start a review of the post in it's own thread.
+                logger.debug(f"Making thread for {submission.title}")
+                thread = threading.Thread(target=review, args=[submission, logger])
+                thread.start()
+                logger.debug(f"made thread for {submission.title}")
 
-        except Exception as mainException:
+        except ServerError as e:
+            logger.error("Reddit server error. Restarting submission stream.")
+        except APIException as e:
+            logger.error("APIException. Restarting submission stream.")
+        except Exception as e:
             # Log the error
-            logger.error("Unable to handle a submission in the main thread. "
+            logger.error("Unable to handle a submission in the main thread for an unknown reason. "
                          "The program will continue but the submission will not be reviewed. "
                          "Printing stack trace and sending notification.")
-            logger.error(mainException)
-
-            # Send a mod mail
-            try:
-                if CREATE_MOD_MAIL:
-                    connection = sql.createDBConnection(sql.DB_FILE)
-                    subject = "Bot error. Bot was unable to handle a submission."
-                    body = f"Unable to handle {submission.id}:{submission.title}.The bot will continue to function."
-                    sql.insertBotMessageIntoDB(connection, subject, body)
-                    logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
-            except Exception as mailException:
-                logger.error("Was unable to send mod mail about unreviewed post. Printing stack stace.")
-                logger.error(mailException)
-
-    # Actions to perform if main loop ever exits
-    logger.critical("The main loop has exited. The bot will no longer function. Sending notification")
-    try:
-        if CREATE_MOD_MAIL:
-            connection = sql.createDBConnection(sql.DB_FILE)
-            subject = "Critical bot error. Bot needs to be restarted"
-            body = f"The main loop was exited. Check {LOG_FILE} for details."
-            sql.insertBotMessageIntoDB(connection, subject, body)
-            logger.debug(f"Inserted mod mail into the db for main loop exit")
-    except Exception as mailException:
-        logger.error("Was unable to send mod mail about unreviewed post. Printing stack stace.")
-        logger.error(mailException)
-
-    # Exit
-    os._exit(1)
+            logger.error(e)
+            logger.error("Restarting submission stream")
 
 
 def persistence(logger: logging.Logger):
