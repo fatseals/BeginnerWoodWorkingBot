@@ -1,4 +1,3 @@
-import os
 import sqlite3
 import threading
 import time
@@ -30,9 +29,8 @@ DOUBLE_DIPPING_REPLY = "Your submission to r/BeginnerWoodWorking has been remove
 PASS_DELAY = 900
 
 # If the bot should create a mod mail when it removes a post.
-# If set to true and the bot is a moderator it will spam the mod discussions which cannot be archived (annoying)
-# Tabs can be kept on the bot by looking in the moderation log
-CREATE_MOD_MAIL = False
+# Tabs can be kept on the bot by looking in the moderation log if set to false
+CREATE_MOD_MAIL = True
 
 # User agent to connect to Reddit
 USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
@@ -47,7 +45,7 @@ BOT_USERNAME = "BeginnerWoodworkBot"
 SUBREDDIT = "BeginnerWoodWorking"
 
 # Flair text for links the standard reply should not be given on
-NO_REPLY_FLAIR_TEXT = "Discussion/Question"
+NO_REPLY_FLAIR_TEXT = "Discussion/Question ⁉"
 
 # Location of the log file
 LOG_FILE = "bot.log"
