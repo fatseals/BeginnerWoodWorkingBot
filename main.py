@@ -30,7 +30,7 @@ PASS_DELAY = 900
 
 # If the bot should create a mod mail when it removes a post.
 # Tabs can be kept on the bot by looking in the moderation log if set to false
-CREATE_MOD_MAIL = True
+CREATE_MOD_MAIL = False
 
 # User agent to connect to Reddit
 USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
