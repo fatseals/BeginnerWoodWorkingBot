@@ -88,8 +88,8 @@ def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.
 
         if (submission.author is not None) and (submission.title is not None) and CREATE_MOD_MAIL:
             subject = "Removed double dipping post (Rule #4)"
-            body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 " \
-                   f"violation. "
+            body = f"Automatically removed post \"[{submission.title}]({submission.permalink})\" " \
+                   f"by u/{submission.author.name} for rule #4 violation. "
             sql.insertBotMessageIntoDB(connection, subject, body)
             logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
     except Exception as e:

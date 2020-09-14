@@ -24,7 +24,7 @@ def notifier(logger: logging.Logger):
         for messageTuple in messageTupleList:
             if messageTuple[4] == 0:  # IsUserMessage == False
                 subreddit.message(messageTuple[1], messageTuple[2])
-                logger.info(f"Sent modmail \"{messageTuple[1]}\" from mod bot")
+                logger.info(f"Sent modmail \"{messageTuple[1]}\" from notifier bot")
             else:
                 subject = f"{messageTuple[1]} from u/{messageTuple[3]}"
                 body = f"{messageTuple[2]} \n\nThe above message was sent to BeginnerWoodworkBot by u/{messageTuple[3]}"
