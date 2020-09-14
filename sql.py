@@ -103,7 +103,7 @@ def insertBotMessageIntoDB(connection: sqlite3.Connection, subject: str, body: s
         return
 
     query = f"INSERT INTO {MESSAGE_TABLE_NAME} (MessageID , Subject, Body, IsUserMessage, MessageTime) " \
-            f"VALUES (?,?,?,?,?,?)"
+            f"VALUES (?,?,?,?,?)"
     values = None
     if subject is not None or subject is "":
         UID = str(time.time()) + body
