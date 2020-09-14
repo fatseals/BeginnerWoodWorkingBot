@@ -30,7 +30,7 @@ PASS_DELAY = 900
 
 # If the bot should create a mod mail when it removes a post.
 # Tabs can be kept on the bot by looking in the moderation log if set to false
-CREATE_MOD_MAIL = False
+CREATE_MOD_MAIL = True
 
 # User agent to connect to Reddit
 USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
@@ -82,18 +82,22 @@ def isAQuestion(submission: praw.models.Submission):
 
 
 def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.Submission, logger: logging.Logger):
-    reply = submission.reply(DOUBLE_DIPPING_REPLY)
-    reply.mod.distinguish(how="yes", sticky=True)
+    try:
+        reply = submission.reply(DOUBLE_DIPPING_REPLY)
+        reply.mod.distinguish(how="yes", sticky=True)
 
-    logger.info(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. "
-                f"ID = {submission.id}")
-
-    if submission.author is not None and submission.title is not None and CREATE_MOD_MAIL:
-        subject = "Removed double dipping post (Rule #4)"
-        body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 violation."
-        sql.insertBotMessageIntoDB(connection, subject, body)
-        logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
-    submission.mod.remove()
+        if (submission.author is not None) and (submission.title is not None) and CREATE_MOD_MAIL:
+            subject = "Removed double dipping post (Rule #4)"
+            body = f"Automatically removed post \"{submission.title}\" by u/{submission.author.name} for rule #4 " \
+                   f"violation. "
+            sql.insertBotMessageIntoDB(connection, subject, body)
+            logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
+    except Exception as e:
+        logger.warning("Unable to send modmail")
+    finally:
+        submission.mod.remove()
+        logger.info(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. "
+                    f"ID = {submission.id}")
 
 
 def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Connection, logger: logging.Logger):
@@ -297,7 +301,7 @@ if __name__ == "__main__":
     mainThread = threading.Thread(target=main, args=[mainLogger])
     persistenceThread = threading.Thread(target=persistence, args=[mainLogger])
     messagePasserThread = threading.Thread(target=messagePasser, args=[mainLogger])
-    notifierThread = threading.Thread(target=notifier.notifier)
+    notifierThread = threading.Thread(target=notifier.notifier, args=[mainLogger])
 
     mainThread.start()
     persistenceThread.start()

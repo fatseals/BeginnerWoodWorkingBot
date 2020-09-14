@@ -203,7 +203,7 @@ def fetchAllMessagesFromDB(connection: sqlite3.Connection):
     if connection is None:
         return
 
-    query = f"SELECT MessageID , Subject, Body, Sender, IsUserMessage, MessageTime FROM {MESSAGE_TABLE_NAME}"
+    query = f"SELECT MessageID, Subject, Body, Sender, IsUserMessage, MessageTime FROM {MESSAGE_TABLE_NAME}"
     cursor = connection.cursor()
     cursor.execute(query)
     messageTuples = cursor.fetchall()
