@@ -94,6 +94,8 @@ def removeDoubleDippers(connection: sqlite3.Connection, submission: praw.models.
             logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
     except Exception as e:
         logger.warning("Unable to send modmail")
+        logger.warning("Printing stack trace")
+        logger.warning(e)
     finally:
         submission.mod.remove()
         logger.info(f"=== Removed post by u/{submission.author}: \"{submission.title}\" for double dipping. "
