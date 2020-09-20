@@ -1,10 +1,3 @@
-# Scratch file - serves no purpose
-
-class Post:
-    def __init__(self, postId, reviewTime, postTime, replyID):
-        self.postID = postId
-        self.reviewTime = reviewTime
-        self.postTime = postTime
-        self.replyID = replyID
-
-        # Create flair votes
+for template in subreddit.flair.link_templates:
+    if template["type"] == "text":  # Bullshit magic strings -> gets the text of the flair which is the useful bit
+        flairs.append(template["text"])

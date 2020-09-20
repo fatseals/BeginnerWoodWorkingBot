@@ -1,5 +1,6 @@
 import time
 import logging
+import traceback
 
 import sql
 import main
@@ -11,6 +12,7 @@ NOTIFIER_PRAW_INI_SITE = "notifierBot"
 
 # User agent for notifier bot
 NOTIFIER_USER_AGENT = "B-W-Notifier-Bot by u/-CrashDive-"
+
 
 def notifier(logger: logging.Logger):
 
