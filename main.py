@@ -244,6 +244,7 @@ def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Con
     votingEligibility = findVotingEligibility(submission, logger)
     reply = reddit.comment(replyID)
     logger.debug(f"Voting eligibility -> {votingEligibility}")
+
     if votingEligibility:
         logger.info(f"Did not un-sticky standard reply on \"{submission.title}\" by u/{submission.author} (voteable)")
         body = reply.body
@@ -357,23 +358,9 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
             logger.warning("Unable to send mod mail")
             logger.warning("Printing stack trace")
             logger.warning(e)
-    else:  # Actions of the post is not to be removed
-        # Send mod mail
-        try:
-            if (submission.author is not None) and (submission.title is not None) and CREATE_MOD_MAIL:
-                subject = "A post was not voted to be removed"
-                body = f"\"[{submission.title}]({submission.permalink})\" by u/{submission.author.name} has not " \
-                       f"been flagged for removal. If the post feels like it should have been removed then take note " \
-                       f"so that the threshold for removal can be adjusted. \n\n" \
-                       f"Results = {str(votes)} \n\n" \
-                       f"Threshold = {threshold}"
-                sql.insertBotMessageIntoDB(connection, subject, body)
-                logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
-        except Exception as e:
-            logger.warning("Unable to send mod mail")
-            logger.warning("Printing stack trace")
-            logger.warning(e)
-
+    else:
+        # Actions of the post is not to be removed
+        pass
 
     logger.info(f"VOTING: Did voting action on {submission.title} by u/{submission.author}")
 
@@ -494,7 +481,7 @@ def voting(logger: logging.Logger):
                     logger.warning("Printing stack strace...")
                     logger.warning(innerException)
 
-            time.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
+            time.sleep(300)  # No need to query the DB constantly doing voting. 300s = 5m
         except Exception as outerException:
             logger.warning("The voting thread raised an exception. It will try to continue.")
             logger.warning("Printing stack strace...")
