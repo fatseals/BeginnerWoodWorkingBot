@@ -23,7 +23,7 @@ DOUBLE_DIPPING_REPLY = "**Your submission to r/BeginnerWoodWorking has been remo
                        "https://www.reddit.com/r/BeginnerWoodWorking/about/rules/), images and links posted in this " \
                        "subreddit cannot also be posted in other subreddits. \n\n This action has been performed " \
                        "automatically by a bot. If you believe that your post has been removed in error then please [" \
-                       "message the moderators](https://www.reddit.com/message/compose?to=%2Fr%2FBeginnerWoodWorking). "
+                       "message the moderators](https://www.reddit.com/message/compose?to=%2Fr%2FBeginnerWoodWorking)."
 
 # This part is added to the standard reply when a posy is voteable.
 VOTING_TEXT = "\n\n**Public vote: Do you think this post is a good fit for /r/BeginnerWoodWorking?** If you do then " \
@@ -31,7 +31,7 @@ VOTING_TEXT = "\n\n**Public vote: Do you think this post is a good fit for /r/Be
               "post will be removed so please vote if you feel strongly.\n"
 
 # Part of a reply to indicate voting has closed
-VOTING_CLOSED_TEXT = "\n\n**Voting on this submission has closed.**"
+VOTING_CLOSED_TEXT = "\n\n**Voting on this submission has closed**."
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
