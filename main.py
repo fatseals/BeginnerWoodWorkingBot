@@ -479,20 +479,26 @@ def voting(logger: logging.Logger):
         try:
             postIDList = sql.fetchPostsNeedingVotingFromDB(connection)
             for postID in postIDList:
-                logger.debug(postID)
-                submission = reddit.submission(postID)
-                if submission is not None:
-                    if sql.isVoteable(connection, submission.id):
-                        votingAction(submission, connection, logger)
-                    sql.removePostFromDB(connection, submission)
-                logger.debug(f"Processed voting on {submission}")
-                time.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
+                try:
+                    logger.debug(postID)
+                    submission = reddit.submission(postID)
+                    if submission is not None:
+                        if sql.isVoteable(connection, submission.id):
+                            votingAction(submission, connection, logger)
+                        sql.removePostFromDB(connection, submission)
+                    logger.debug(f"Processed voting on {submission}")
+                    time.sleep(5)  # Throttles the bot some to avoid hitting the rate limit
+                except Exception as innerException:
+                    logger.warning(f"There was an issue processing voting for post {postID}")
+                    logger.warning("The post was removed from the database and will not be processed")
+                    logger.warning("Printing stack strace...")
+                    logger.warning(innerException)
 
             time.sleep(300)  # No need to query the DB constantly doing persistence checks. 300s = 5m
-        except Exception as e:
+        except Exception as outerException:
             logger.warning("The voting thread raised an exception. It will try to continue.")
             logger.warning("Printing stack strace...")
-            logger.warning(e)
+            logger.warning(outerException)
 
 
 def messagePasser(logger: logging.Logger):
