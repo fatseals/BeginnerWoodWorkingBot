@@ -45,16 +45,16 @@ VOTE_ACTION_DELAY = 240
 CREATE_MOD_MAIL = True
 
 # User agent to connect to Reddit
-USER_AGENT = "BeginnerWoodworkBotTesting by u/-CrashDive-"
+USER_AGENT = "BeginnerWoodworkBot by u/-CrashDive-"
 
 # Site in praw.ini with bot credentials
 PRAW_INI_SITE = "bot"
 
 # Bot username
-BOT_USERNAME = "BWoodworkingBotTest"
+BOT_USERNAME = "BeginnerWoodworkBot"
 
 # Subreddit for the bot to operate on
-SUBREDDIT = "CrashDiveTesting"
+SUBREDDIT = "BeginnerWoodWorking"
 
 # Flair texts for links the standard reply should not be given on
 NO_REPLY_FLAIR_TEXTS = ["Discussion/Question !?", "Funny Friday"]
@@ -187,6 +187,8 @@ def firstReviewPass(submission: praw.models.Submission, connection: sqlite3.Conn
         return False
 
     logger.info(f"Working on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
+
+    # TODO add shit for voting
 
     # Give standard reply for posts that aren't questions
     if isAQuestion(submission):
