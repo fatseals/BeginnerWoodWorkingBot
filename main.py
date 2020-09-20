@@ -35,10 +35,10 @@ VOTING_CLOSED_TEXT = "\n\n**Voting on this submission has closed.**"
 
 # How long to wait in seconds before checking the post again to delete the standard reply and/ or to remove the
 # submission for double dipping (900s = 15m)
-PASS_DELAY = 120
+PASS_DELAY = 900
 
 # How long to wait in seconds after the post was made to carry out voting actions (21600s = 6 hours)
-VOTE_ACTION_DELAY = 240
+VOTE_ACTION_DELAY = 14400
 
 # If the bot should create a mod mail when it removes a post.
 # Tabs can be kept on the bot by looking in the moderation log if set to false
