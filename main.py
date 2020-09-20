@@ -539,9 +539,11 @@ def commentStream(logger: logging.Logger):
                 # Check if the comment is a reply to the bot, the comment is a command, that voting has not ended, and
                 # that the submission is voteable
                 parentID: str = comment.parent_id
+
+                # TODO find a better way to accommodate mobile users and autocorrect
+                # and (comment.body.lower().startswith(COMMAND_PREFIX)) \
                 if (not parentID.startswith("t3_")) \
                     and (reddit.comment(id=parentID.split("_")[-1]).author == BOT_USERNAME) \
-                    and (comment.body.lower().startswith(COMMAND_PREFIX)) \
                     and (comment.submission.created_utc + VOTE_ACTION_DELAY > time.time()) \
                     and (sql.isVoteable(connection, comment.submission.id)):
 
