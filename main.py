@@ -295,7 +295,7 @@ def secondReviewPass(submission: praw.models.Submission, connection: sqlite3.Con
             deleteFlag = False
             break
 
-    if deleteFlag and oldestOPComment is not None:
+    if (deleteFlag) and (oldestOPComment is not None) and (not votingEligibility):
         reply.delete()
         logger.info(f"Deleted standard reply on \"{submission.title}\" by u/{submission.author}. ID = {submission.id}")
 
