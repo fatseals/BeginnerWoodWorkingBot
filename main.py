@@ -27,8 +27,8 @@ DOUBLE_DIPPING_REPLY = "**Your submission to r/BeginnerWoodWorking has been remo
 
 # This part is added to the standard reply when a posy is voteable.
 VOTING_TEXT = "\n\n**Public vote: Do you think this post is a good fit for /r/BeginnerWoodWorking?** If you do then " \
-              "reply with `!yes`. If you don't then reply with `!no`. Voting determines if a post will be removed so " \
-              "please vote if you feel strongly.\n"
+              "reply to **this comment** with `!yes`. If you don't then reply with `!no`. Voting determines if a " \
+              "post will be removed so please vote if you feel strongly.\n"
 
 # Part of a reply to indicate voting has closed
 VOTING_CLOSED_TEXT = "\n\n**Voting on this submission has closed.**"
