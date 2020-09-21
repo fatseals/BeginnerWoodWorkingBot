@@ -475,7 +475,7 @@ def voting(logger: logging.Logger):
             for postID in postIDList:
                 try:
                     logger.debug(postID)
-                    submission = reddit.submission(postID)
+                    submission = reddit.submission(id=postID)
                     if submission is not None:
                         if sql.isVoteable(connection, submission.id):
                             votingAction(submission, connection, logger)
@@ -487,6 +487,7 @@ def voting(logger: logging.Logger):
                     logger.warning("The post was removed from the database and will not be processed")
                     logger.warning("Printing stack strace...")
                     logger.warning(innerException)
+                    sql.removePostFromDB(connection, submission)
 
             time.sleep(300)  # No need to query the DB constantly doing voting. 300s = 5m
         except Exception as outerException:
