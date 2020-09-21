@@ -325,7 +325,14 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
 
     commentBody = createBodyWithNewVotingTable(connection, submission, STANDARD_REPLY + VOTING_CLOSED_TEXT)
     comment.edit(commentBody)
-    comment.mod.lock()
+    try:
+        comment.mod.lock()
+        comment.mod.undistinguish()
+        comment.mod.distinguish(how="yes", sticky=False)
+    except Exception as e:
+        logger.debug("Unable to unsticky reply")
+        logger.debug(e)
+
 
     # Get the votes
     votes = sql.fetchVotes(connection, submission.id)
