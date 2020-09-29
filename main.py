@@ -323,7 +323,7 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
     commentID = sql.fetchCommentIDFromDB(connection, submission)
     comment = reddit.comment(id=commentID)
 
-    commentBody = createBodyWithNewVotingTable(connection, submission, STANDARD_REPLY + VOTING_CLOSED_TEXT)
+    commentBody = STANDARD_REPLY + VOTING_CLOSED_TEXT
     comment.edit(commentBody)
     try:
         comment.mod.lock()
@@ -348,17 +348,16 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
 
     # Actions to take
     if removePost:
-        #TODO add remove post functionality
+        submission.mod.remove()
 
         # Send mod mail
         try:
             if (submission.author is not None) and (submission.title is not None) and CREATE_MOD_MAIL:
-                subject = "A post was voted to be removed"
+                subject = "A post was removed due to voting"
                 body = f"\"[{submission.title}]({submission.permalink})\" by u/{submission.author.name} " \
-                       f"has been flagged for removal by community voting. \n\n" \
-                       f"No action was taken because the bot is in trial mode. Manual intervention required. \n\n" \
-                       f"Results = {str(votes)} \n\n" \
-                       f"Threshold for removal = {threshold}"
+                       f"has been removed due to community voting. \n\n" \
+                       f"Results: {str(votes)} \n\n" \
+                       f"Score required for removal: {threshold}"
                 sql.insertBotMessageIntoDB(connection, subject, body)
                 logger.debug(f"Inserted mod mail into the db for submission: {submission.title}")
         except Exception as e:
@@ -366,7 +365,7 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
             logger.warning("Printing stack trace")
             logger.warning(e)
     else:
-        # Actions of the post is not to be removed
+        # Actions if the post is not to be removed
         pass
 
     logger.info(f"VOTING: Did voting action on {submission.title} by u/{submission.author}")
