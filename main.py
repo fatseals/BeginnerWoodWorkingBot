@@ -38,7 +38,7 @@ VOTING_CLOSED_TEXT = "\n\n**Voting on this submission has closed**."
 PASS_DELAY = 900
 
 # How long to wait in seconds after the post was made to carry out voting actions (21600s = 6 hours)
-VOTE_ACTION_DELAY = 14400
+VOTE_ACTION_DELAY = 18000
 
 # If the bot should create a mod mail when it removes a post.
 # Tabs can be kept on the bot by looking in the moderation log if set to false
@@ -339,7 +339,7 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
 
     # Determine the result of the vote
     upvotes = submission.score
-    threshold = math.floor(-1*(3.7272*(pow(math.e, (0.002*upvotes)))))
+    threshold = math.floor((-1/150)*upvotes)
     # If the score is below threshold the post will be removed
     score = votes["Beginner"] - votes["Not Beginner"]
     removePost = score <= threshold
@@ -550,7 +550,11 @@ def commentStream(logger: logging.Logger):
                     # Ensure the person is not voting twice
                     if comment.author.name in sql.fetchVoters(connection, submissionID):
                         comment.mod.remove()
-                        logger.info(f"{comment.author.name} attempted to double vote")
+                        continue
+
+                    # Stop OP from self voting
+                    if comment.is_submitter:
+                        comment.mod.remove()
                         continue
 
                     # Strip command prefix and whitespace then convert to lower case
