@@ -339,7 +339,7 @@ def votingAction(submission: praw.models.Submission, connection: sqlite3.Connect
 
     # Determine the result of the vote
     upvotes = submission.score
-    threshold = math.floor((-1/90)*upvotes)
+    threshold = math.floor((-1/90)*upvotes) - 2
     # If the score is below threshold the post will be removed
     score = votes["Beginner"] - votes["Not Beginner"]
     removePost = score <= threshold
